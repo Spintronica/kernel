@@ -15,7 +15,6 @@
 #include <linux/of.h>
 #include <linux/of_net.h>
 #include <linux/of_mdio.h>
-#include <linux/pcs/pcs-xpcs.h>
 #include <linux/netdev_features.h>
 #include <linux/netdevice.h>
 #include <linux/if_bridge.h>
@@ -1304,6 +1303,11 @@ static int sja1105_set_port_speed(struct sja1105_private *priv, int port,
 	 * longer need to store it in the static config (already told hardware
 	 * we want auto during upload phase).
 	 */
+	if (priv->phy_mode[port] == PHY_INTERFACE_MODE_SGMII)
+		speed = priv->info->port_speed[SJA1105_SPEED_1000MBPS];
+	else if (priv->phy_mode[port] == PHY_INTERFACE_MODE_2500BASEX)
+		speed = priv->info->port_speed[SJA1105_SPEED_2500MBPS];
+
 	mac[port].speed = speed;
 
 	return 0;
@@ -1351,12 +1355,8 @@ sja1105_mac_select_pcs(struct phylink_config *config, phy_interface_t iface)
 {
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 	struct sja1105_private *priv = dp->ds->priv;
-	struct dw_xpcs *xpcs = priv->xpcs[dp->index];
 
-	if (xpcs)
-		return &xpcs->pcs;
-
-	return NULL;
+	return priv->pcs[dp->index];
 }
 
 static void sja1105_mac_config(struct phylink_config *config,
@@ -2308,7 +2308,7 @@ int sja1105_static_config_reload(struct sja1105_private *priv,
 		mac_speed[i] = mac[i].speed;
 		mac[i].speed = priv->info->port_speed[SJA1105_SPEED_AUTO];
 
-		if (priv->xpcs[i])
+		if (priv->pcs[i])
 			bmcr[i] = mdiobus_c45_read(priv->mdio_pcs, i,
 						   MDIO_MMD_VEND2, MDIO_CTRL1);
 	}
@@ -2365,7 +2365,7 @@ int sja1105_static_config_reload(struct sja1105_private *priv,
 	}
 
 	for (i = 0; i < ds->num_ports; i++) {
-		struct dw_xpcs *xpcs = priv->xpcs[i];
+		struct phylink_pcs *pcs = priv->pcs[i];
 		unsigned int neg_mode;
 
 		mac[i].speed = mac_speed[i];
@@ -2373,7 +2373,7 @@ int sja1105_static_config_reload(struct sja1105_private *priv,
 		if (rc < 0)
 			goto out;
 
-		if (!xpcs)
+		if (!pcs)
 			continue;
 
 		if (bmcr[i] & BMCR_ANENABLE)
@@ -2381,7 +2381,8 @@ int sja1105_static_config_reload(struct sja1105_private *priv,
 		else
 			neg_mode = PHYLINK_PCS_NEG_OUTBAND;
 
-		rc = xpcs_do_config(xpcs, priv->phy_mode[i], NULL, neg_mode);
+		rc = pcs->ops->pcs_config(pcs, neg_mode, priv->phy_mode[i],
+					  NULL, true);
 		if (rc < 0)
 			goto out;
 
@@ -2397,8 +2398,8 @@ int sja1105_static_config_reload(struct sja1105_private *priv,
 			else
 				speed = SPEED_10;
 
-			xpcs_link_up(&xpcs->pcs, neg_mode, priv->phy_mode[i],
-				     speed, DUPLEX_FULL);
+			pcs->ops->pcs_link_up(pcs, neg_mode, priv->phy_mode[i],
+					      speed, DUPLEX_FULL);
 		}
 	}
 

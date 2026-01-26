@@ -16,6 +16,7 @@
 #include <linux/videodev2.h>
 #include <linux/wait.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/reset.h>
 
 #include <media/v4l2-ctrls.h>
@@ -32,6 +33,8 @@ struct hantro_codec_ops;
 struct hantro_postproc_ops;
 
 #define HANTRO_JPEG_ENCODER	BIT(0)
+#define HANTRO_VP8_ENCODER	BIT(1)
+#define HANTRO_H264_ENCODER	BIT(2)
 #define HANTRO_ENCODERS		0x0000ffff
 #define HANTRO_MPEG2_DECODER	BIT(16)
 #define HANTRO_VP8_DECODER	BIT(17)
@@ -91,6 +94,7 @@ struct hantro_variant {
 	unsigned int codec;
 	const struct hantro_codec_ops *codec_ops;
 	int (*init)(struct hantro_dev *vpu);
+	void (*deinit)(struct hantro_dev *vpu);
 	int (*runtime_resume)(struct hantro_dev *vpu);
 	const struct hantro_irq *irqs;
 	int num_irqs;
@@ -101,6 +105,7 @@ struct hantro_variant {
 	unsigned int double_buffer : 1;
 	unsigned int legacy_regs : 1;
 	unsigned int late_postproc : 1;
+	unsigned int baikal_regs : 1;
 };
 
 /**
@@ -113,6 +118,7 @@ struct hantro_variant {
  * @HANTRO_MODE_HEVC_DEC: HEVC decoder.
  * @HANTRO_MODE_VP9_DEC: VP9 decoder.
  * @HANTRO_MODE_AV1_DEC: AV1 decoder
+ * @HANTRO_MODE_VP8_ENC: VP8 encoder.
  */
 enum hantro_codec_mode {
 	HANTRO_MODE_NONE = -1,
@@ -123,6 +129,8 @@ enum hantro_codec_mode {
 	HANTRO_MODE_HEVC_DEC,
 	HANTRO_MODE_VP9_DEC,
 	HANTRO_MODE_AV1_DEC,
+	HANTRO_MODE_VP8_ENC,
+	HANTRO_MODE_H264_ENC,
 };
 
 /*
@@ -206,6 +214,8 @@ struct hantro_dev {
 	void __iomem *enc_base;
 	void __iomem *dec_base;
 	void __iomem *ctrl_base;
+	void *priv;
+	dma_addr_t dma_handle;
 
 	struct mutex vpu_mutex;	/* video_device lock */
 	spinlock_t irqlock;
@@ -272,6 +282,8 @@ struct hantro_ctx {
 		struct hantro_hevc_dec_hw_ctx hevc_dec;
 		struct hantro_vp9_dec_hw_ctx vp9_dec;
 		struct hantro_av1_dec_hw_ctx av1_dec;
+		struct hantro_vp8_enc_hw_ctx vp8_enc;
+		struct hantro_h264_enc_hw_ctx h264_enc;
 	};
 };
 
@@ -370,6 +382,12 @@ extern int hantro_debug;
 #define vpu_err(fmt, args...)					\
 	pr_err("%s:%d: " fmt, __func__, __LINE__, ##args)
 
+static inline unsigned int hantro_rounded_luma_size(unsigned int w,
+						    unsigned int h)
+{
+	return round_up(w, MB_DIM) * round_up(h, MB_DIM);
+}
+
 /* Structure access helpers. */
 static __always_inline struct hantro_ctx *fh_to_ctx(struct v4l2_fh *fh)
 {
@@ -377,6 +395,112 @@ static __always_inline struct hantro_ctx *fh_to_ctx(struct v4l2_fh *fh)
 }
 
 /* Register accessors. */
+#ifdef CONFIG_VIDEO_HANTRO_BAIKAL
+
+#define BAIKAL_VDPU_MAX_TILE_INFO_SIZE	(4096 * 360 * 2)
+#define BAIKAL_VDPU_CMDBUF_OFFSET	BAIKAL_VDPU_MAX_TILE_INFO_SIZE
+#define BAIKAL_VDPU_CMDBUF_SIZE		0x680
+#define BAIKAL_VDPU_IRQ_CMDBUF_OFFSET	(BAIKAL_VDPU_CMDBUF_OFFSET + BAIKAL_VDPU_CMDBUF_SIZE)
+#define BAIKAL_VDPU_IRQ_CMDBUF_SIZE	0x10
+#define BAIKAL_VDPU_READ_CMDBUF_OFFSET	(BAIKAL_VDPU_IRQ_CMDBUF_OFFSET + BAIKAL_VDPU_IRQ_CMDBUF_SIZE)
+#define BAIKAL_VDPU_READ_CMDBUF_SIZE	0x1C
+
+#define BAIKAL_VDPU_REG_CMDBUF_COUNT		0x0c
+#define BAIKAL_VDPU_REG_CMDBUF_CTRL		0x40
+#define BAIKAL_VDPU_REG_CMDBUF_ADDR_LSB		0x50
+#define BAIKAL_VDPU_REG_CMDBUF_ADDR_MSB		0x54
+#define BAIKAL_VDPU_REG_CMDBUF_LENGTH		0x58
+#define BAIKAL_VDPU_REG_CMDBUF_READY_COUNT	0x60
+#define BAIKAL_VDPU_REG_CMDBUF_ID		0x68
+
+// TODO
+#define BAIKAL_VDPU_CMDBUF_MAX_RETRIES	100
+#define BAIKAL_VDPU_CMDBUF_DELAY_MS	1
+
+#define BAIKAL_VDPU_REGS_OFFSET	0x800
+
+static __always_inline void baikal_vdpu_write(struct hantro_dev *vpu, u32 val, u32 reg)
+{
+	int i;
+
+	if (reg == 0x4) {
+		if (val & BIT(0)) {
+			writel(0xffffffff, vpu->dec_base + 0x64);
+			writel((BAIKAL_VDPU_CMDBUF_SIZE + BAIKAL_VDPU_IRQ_CMDBUF_SIZE) / 8,
+				vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_LENGTH);
+			writel(vpu->dma_handle + BAIKAL_VDPU_CMDBUF_OFFSET,
+				vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ADDR_LSB);
+		} else {
+			writel(2, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_LENGTH);
+			writel(vpu->dma_handle + BAIKAL_VDPU_IRQ_CMDBUF_OFFSET,
+				vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ADDR_LSB);
+		}
+
+		writel(val, vpu->priv + BAIKAL_VDPU_IRQ_CMDBUF_OFFSET + 0x4);
+
+		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ID);
+		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_COUNT);
+		writel(1, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_READY_COUNT);
+		writel(readl(vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_CTRL) | BIT(0),
+		       vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_CTRL);
+
+		for (i = 0; i < BAIKAL_VDPU_CMDBUF_MAX_RETRIES; ++i) {
+			if (!(readl(vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_CTRL) & BIT(0))) {
+				writel(0x5f, vpu->dec_base + 0x44);
+				break;
+			}
+
+			mdelay(BAIKAL_VDPU_CMDBUF_DELAY_MS);
+		}
+
+		if (val & BIT(0))
+			writel(0, vpu->dec_base + 0x64);
+	} else if (reg > 0x4) {
+		writel(val, vpu->priv + BAIKAL_VDPU_CMDBUF_OFFSET + reg - 0x4);
+	}
+}
+
+static __always_inline u32 baikal_vdpu_read(struct hantro_dev *vpu, u32 reg)
+{
+	if (reg > 0x4) {
+		return readl(vpu->priv + BAIKAL_VDPU_CMDBUF_OFFSET + reg - 0x4);
+	} else {
+		int i;
+
+		writel(0xb0010000 | ((reg + BAIKAL_VDPU_REGS_OFFSET) & 0xffff),
+			vpu->priv + BAIKAL_VDPU_READ_CMDBUF_OFFSET);
+		writel(3, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_LENGTH);
+		writel(vpu->dma_handle + BAIKAL_VDPU_READ_CMDBUF_OFFSET,
+			vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ADDR_LSB);
+		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ID);
+		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_COUNT);
+		writel(1, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_READY_COUNT);
+		writel(readl(vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_CTRL) | BIT(0),
+		       vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_CTRL);
+
+		for (i = 0; i < BAIKAL_VDPU_CMDBUF_MAX_RETRIES; ++i) {
+			if (!(readl(vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_CTRL) & BIT(0))) {
+				writel(0x5f, vpu->dec_base + 0x44);
+				return readl(vpu->priv + BAIKAL_VDPU_READ_CMDBUF_OFFSET + 0x18);
+			}
+
+			mdelay(BAIKAL_VDPU_CMDBUF_DELAY_MS);
+		}
+	}
+
+	return 0;
+}
+#else
+static __always_inline void baikal_vdpu_write(struct hantro_dev *vpu, u32 val, u32 reg)
+{
+}
+
+static __always_inline u32 baikal_vdpu_read(struct hantro_dev *vpu, u32 reg)
+{
+	return 0;
+}
+#endif
+
 static __always_inline void vepu_write_relaxed(struct hantro_dev *vpu,
 					       u32 val, u32 reg)
 {
@@ -402,13 +526,19 @@ static __always_inline void vdpu_write_relaxed(struct hantro_dev *vpu,
 					       u32 val, u32 reg)
 {
 	vpu_debug(6, "0x%04x = 0x%08x\n", reg / 4, val);
-	writel_relaxed(val, vpu->dec_base + reg);
+	if (vpu->variant->baikal_regs && vpu->variant->codec & HANTRO_DECODERS)
+		baikal_vdpu_write(vpu, val, reg);
+	else
+		writel_relaxed(val, vpu->dec_base + reg);
 }
 
 static __always_inline void vdpu_write(struct hantro_dev *vpu, u32 val, u32 reg)
 {
 	vpu_debug(6, "0x%04x = 0x%08x\n", reg / 4, val);
-	writel(val, vpu->dec_base + reg);
+	if (vpu->variant->baikal_regs && vpu->variant->codec & HANTRO_DECODERS)
+		baikal_vdpu_write(vpu, val, reg);
+	else
+		writel(val, vpu->dec_base + reg);
 }
 
 static __always_inline void hantro_write_addr(struct hantro_dev *vpu,
@@ -420,7 +550,9 @@ static __always_inline void hantro_write_addr(struct hantro_dev *vpu,
 
 static __always_inline u32 vdpu_read(struct hantro_dev *vpu, u32 reg)
 {
-	u32 val = readl(vpu->dec_base + reg);
+	u32 val = (vpu->variant->baikal_regs && vpu->variant->codec & HANTRO_DECODERS) ?
+		baikal_vdpu_read(vpu, reg) :
+		readl(vpu->dec_base + reg);
 
 	vpu_debug(6, "0x%04x = 0x%08x\n", reg / 4, val);
 	return val;

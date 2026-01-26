@@ -72,6 +72,7 @@ int panfrost_gpu_soft_reset(struct panfrost_device *pfdev)
 		val, val & GPU_IRQ_RESET_COMPLETED, 10, 10000);
 
 	if (ret) {
+		if (!(pfdev->comp->pm_features & BIT(GPU_PM_PWROFF_DIS)))
 		dev_err(pfdev->dev, "gpu soft reset timed out, attempting hard reset\n");
 
 		gpu_write(pfdev, GPU_CMD, GPU_CMD_HARD_RESET);
@@ -110,6 +111,12 @@ void panfrost_gpu_amlogic_quirk(struct panfrost_device *pfdev)
 	 */
 	gpu_write(pfdev, GPU_PWR_KEY, GPU_PWR_KEY_UNLOCK);
 	gpu_write(pfdev, GPU_PWR_OVERRIDE1, 0xfff | (0x20 << 16));
+}
+
+void panfrost_gpu_bl1000_quirk(struct panfrost_device *pfdev)
+{
+	/* Enable ACE protocol coherency */
+	gpu_write(pfdev, GPU_COHERENCY_ENABLE, 1);
 }
 
 static void panfrost_gpu_init_quirks(struct panfrost_device *pfdev)
@@ -379,6 +386,18 @@ unsigned long long panfrost_cycle_counter_read(struct panfrost_device *pfdev)
 	return ((u64)hi << 32) | lo;
 }
 
+unsigned long long panfrost_timestamp_read(struct panfrost_device *pfdev)
+{
+	u32 hi, lo;
+
+	do {
+		hi = gpu_read(pfdev, GPU_TIMESTAMP_HI);
+		lo = gpu_read(pfdev, GPU_TIMESTAMP_LO);
+	} while (hi != gpu_read(pfdev, GPU_TIMESTAMP_HI));
+
+	return ((u64)hi << 32) | lo;
+}
+
 static u64 panfrost_get_core_mask(struct panfrost_device *pfdev)
 {
 	u64 core_mask;
@@ -411,6 +430,10 @@ void panfrost_gpu_power_on(struct panfrost_device *pfdev)
 	panfrost_gpu_init_quirks(pfdev);
 	core_mask = panfrost_get_core_mask(pfdev);
 
+	if ((pfdev->comp->pm_features & BIT(GPU_PM_PWROFF_DIS)) &&
+	    gpu_read(pfdev, L2_READY_LO))
+		return;
+
 	gpu_write(pfdev, L2_PWRON_LO, pfdev->features.l2_present & core_mask);
 	ret = readl_relaxed_poll_timeout(pfdev->iomem + L2_READY_LO,
 		val, val == (pfdev->features.l2_present & core_mask),
@@ -437,6 +460,9 @@ void panfrost_gpu_power_off(struct panfrost_device *pfdev)
 {
 	int ret;
 	u32 val;
+
+	if (pfdev->comp->pm_features & BIT(GPU_PM_PWROFF_DIS))
+		return;
 
 	gpu_write(pfdev, SHADER_PWROFF_LO, pfdev->features.shader_present);
 	ret = readl_relaxed_poll_timeout(pfdev->iomem + SHADER_PWRTRANS_LO,
@@ -482,7 +508,7 @@ int panfrost_gpu_init(struct panfrost_device *pfdev)
 
 	dma_set_max_seg_size(pfdev->dev, UINT_MAX);
 
-	pfdev->gpu_irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "gpu");
+	pfdev->gpu_irq = fwnode_irq_get_byname(pfdev->dev->fwnode, "gpu");
 	if (pfdev->gpu_irq < 0)
 		return pfdev->gpu_irq;
 

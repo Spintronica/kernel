@@ -263,8 +263,8 @@ static int hantro_try_ctrl(struct v4l2_ctrl *ctrl)
 		if (sps->bit_depth_luma_minus8 != sps->bit_depth_chroma_minus8)
 			/* Luma and chroma bit depth mismatch */
 			return -EINVAL;
-		if (sps->bit_depth_luma_minus8 != 0)
-			/* Only 8-bit is supported */
+		if (sps->bit_depth_luma_minus8 != 0 && sps->bit_depth_luma_minus8 != 2)
+			/* Only 8-bit and 10-bit are supported */
 			return -EINVAL;
 	} else if (ctrl->id == V4L2_CID_STATELESS_HEVC_SPS) {
 		const struct v4l2_ctrl_hevc_sps *sps = ctrl->p_new.p_hevc_sps;
@@ -445,6 +445,20 @@ static const struct hantro_ctrl controls[] = {
 			.id = V4L2_CID_STATELESS_MPEG2_SEQUENCE,
 		},
 	}, {
+		.codec = HANTRO_VP8_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_VP8_ENCODE_PARAMS,
+		},
+	}, {
+		.codec = HANTRO_VP8_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_VP8_ENCODE_QP,
+			.min = 0,
+			.max = 127,
+			.step = 1,
+			.def = 0,
+		},
+	}, {
 		.codec = HANTRO_MPEG2_DECODER,
 		.cfg = {
 			.id = V4L2_CID_STATELESS_MPEG2_PICTURE,
@@ -590,6 +604,16 @@ static const struct hantro_ctrl controls[] = {
 		.codec = HANTRO_AV1_DECODER,
 		.cfg = {
 			.id = V4L2_CID_STATELESS_AV1_FILM_GRAIN,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_ENCODE_PARAMS,
+		},
+	}, {
+		.codec = HANTRO_H264_ENCODER,
+		.cfg = {
+			.id = V4L2_CID_STATELESS_H264_ENCODE_RC,
 		},
 	},
 };
@@ -740,6 +764,10 @@ static const struct of_device_id of_hantro_match[] = {
 #ifdef CONFIG_VIDEO_HANTRO_STM32MP25
 	{ .compatible = "st,stm32mp25-vdec", .data = &stm32mp25_vdec_variant, },
 	{ .compatible = "st,stm32mp25-venc", .data = &stm32mp25_venc_variant, },
+#endif
+#ifdef CONFIG_VIDEO_HANTRO_BAIKAL
+	{ .compatible = "baikal,bl1000-vdpu", .data = &baikal_vdpu_variant, },
+	{ .compatible = "baikal,bl1000-vepu", .data = &baikal_vepu_variant, },
 #endif
 	{ /* sentinel */ }
 };
@@ -1253,6 +1281,8 @@ static void hantro_remove(struct platform_device *pdev)
 	media_device_cleanup(&vpu->mdev);
 	v4l2_m2m_release(vpu->m2m_dev);
 	v4l2_device_unregister(&vpu->v4l2_dev);
+	if (vpu->variant->deinit)
+		vpu->variant->deinit(vpu);
 	clk_bulk_unprepare(vpu->variant->num_clocks, vpu->clocks);
 	reset_control_assert(vpu->resets);
 	pm_runtime_dont_use_autosuspend(vpu->dev);

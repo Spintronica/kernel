@@ -159,15 +159,16 @@ panfrost_dequeue_job(struct panfrost_device *pfdev, int slot)
 	struct panfrost_job *job = pfdev->jobs[slot][0];
 
 	WARN_ON(!job);
-	if (job->is_profiled) {
-		if (job->engine_usage) {
-			job->engine_usage->elapsed_ns[slot] +=
-				ktime_to_ns(ktime_sub(ktime_get(), job->start_time));
-			job->engine_usage->cycles[slot] +=
-				panfrost_cycle_counter_read(pfdev) - job->start_cycles;
-		}
-		panfrost_cycle_counter_put(job->pfdev);
+
+	if (job->is_profiled && job->engine_usage) {
+		job->engine_usage->elapsed_ns[slot] +=
+			ktime_to_ns(ktime_sub(ktime_get(), job->start_time));
+		job->engine_usage->cycles[slot] +=
+			panfrost_cycle_counter_read(pfdev) - job->start_cycles;
 	}
+
+	if (job->requirements & PANFROST_JD_REQ_CYCLE_COUNT || job->is_profiled)
+		panfrost_cycle_counter_put(pfdev);
 
 	pfdev->jobs[slot][0] = pfdev->jobs[slot][1];
 	pfdev->jobs[slot][1] = NULL;
@@ -243,9 +244,13 @@ static void panfrost_job_hw_submit(struct panfrost_job *job, int js)
 	subslot = panfrost_enqueue_job(pfdev, js, job);
 	/* Don't queue the job if a reset is in progress */
 	if (!atomic_read(&pfdev->reset.pending)) {
-		if (pfdev->profile_mode) {
+		job->is_profiled = pfdev->profile_mode;
+
+		if (job->requirements & PANFROST_JD_REQ_CYCLE_COUNT ||
+		    job->is_profiled)
 			panfrost_cycle_counter_get(pfdev);
-			job->is_profiled = true;
+
+		if (job->is_profiled) {
 			job->start_time = ktime_get();
 			job->start_cycles = panfrost_cycle_counter_read(pfdev);
 		}
@@ -693,7 +698,8 @@ panfrost_reset(struct panfrost_device *pfdev,
 	spin_lock(&pfdev->js->job_lock);
 	for (i = 0; i < NUM_JOB_SLOTS; i++) {
 		for (j = 0; j < ARRAY_SIZE(pfdev->jobs[0]) && pfdev->jobs[i][j]; j++) {
-			if (pfdev->jobs[i][j]->is_profiled)
+			if (pfdev->jobs[i][j]->requirements & PANFROST_JD_REQ_CYCLE_COUNT ||
+			    pfdev->jobs[i][j]->is_profiled)
 				panfrost_cycle_counter_put(pfdev->jobs[i][j]->pfdev);
 			pm_runtime_put_noidle(pfdev->dev);
 			panfrost_devfreq_record_idle(&pfdev->pfdevfreq);
@@ -848,7 +854,7 @@ int panfrost_job_init(struct panfrost_device *pfdev)
 	INIT_WORK(&pfdev->reset.work, panfrost_reset_work);
 	spin_lock_init(&js->job_lock);
 
-	js->irq = platform_get_irq_byname(to_platform_device(pfdev->dev), "job");
+	js->irq = fwnode_irq_get_byname(pfdev->dev->fwnode, "job");
 	if (js->irq < 0)
 		return js->irq;
 

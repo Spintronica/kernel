@@ -1,0 +1,135 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Hantro VPU codec driver
+ *
+ * Copyright (C) 2018 Rockchip Electronics Co., Ltd.
+ *	Alpha Lin <alpha.lin@rock-chips.com>
+ */
+
+#ifndef BAIKAL_VPU_REGS_H_
+#define BAIKAL_VPU_REGS_H_
+
+#define BAIKAL_REG(nr)	((nr) * 4)
+
+#define BAIKAL_HREG(b, s, m) \
+	((const struct hantro_reg) { \
+		.base = BAIKAL_REG(b), \
+		.shift = s, \
+		.mask = m, \
+	})
+
+/* Decoder registers. */
+
+#define BAIKAL_REG_CONFIG				BAIKAL_REG(2)
+#define BAIKAL_REG_CONFIG_DEC_CLK_GATE_E		BIT(10)
+
+#define BAIKAL_REG_DEC_CTL0				BAIKAL_REG(3)
+#define BAIKAL_REG_DEC_CTL0_PIC_INTERLACE_E		BIT(23)
+#define BAIKAL_REG_DEC_CTL0_PIC_FIELDMODE_E		BIT(22)
+#define BAIKAL_REG_DEC_CTL0_PIC_TOPFIELD_E		BIT(19)
+#define BAIKAL_REG_DEC_CTL0_WRITE_MVS_E			BIT(12)
+#define BAIKAL_REG_DEC_CTL0_SEQ_MBAFF_E			BIT(10)
+#define BAIKAL_REG_DEC_CTL0_PICORD_COUNT_E		BIT(9)
+
+#define BAIKAL_REG_DEC_CTL1				BAIKAL_REG(4)
+#define BAIKAL_REG_DEC_CTL1_PIC_WIDTH_IN_CBS(v)		(((v) & 0x1fff) << 19)
+#define BAIKAL_REG_DEC_CTL1_PIC_HEIGHT_IN_CBS(v)	(((v) & 0x1fff) << 6)
+#define BAIKAL_REG_DEC_CTL1_REF_FRAMES(v)		((v) & 0x1f)
+
+#define BAIKAL_REG_DEC_CTL2				BAIKAL_REG(5)
+#define BAIKAL_REG_DEC_CTL2_TYPE1_QUANT_E		BIT(24)
+#define BAIKAL_REG_DEC_CTL2_CH_QP_OFFSET(v)		(((v) & 0x1f) << 19)
+#define BAIKAL_REG_DEC_CTL2_CH_QP_OFFSET2(v)		(((v) & 0x1f) << 14)
+#define BAIKAL_REG_DEC_CTL2_FIELDPIC_FLAG_E		BIT(0)
+
+#define BAIKAL_REG_DEC_CTL3				BAIKAL_REG(6)
+
+#define BAIKAL_REG_DEC_CTL4				BAIKAL_REG(7)
+#define BAIKAL_REG_DEC_CTL4_CABAC_E			BIT(31)
+#define BAIKAL_REG_DEC_CTL4_BLACKWHITE_E		BIT(30)
+#define BAIKAL_REG_DEC_CTL4_DIR_8X8_INFER_E		BIT(29)
+#define BAIKAL_REG_DEC_CTL4_WEIGHT_PRED_E		BIT(28)
+#define BAIKAL_REG_DEC_CTL4_WEIGHT_BIPR_IDC(v)		(((v) & 0x3) << 26)
+#define BAIKAL_REG_DEC_CTL4_FRAMENUM_LEN(v)		(((v) & 0x1f) << 16)
+#define BAIKAL_REG_DEC_CTL4_FRAMENUM(v)			((v) & 0xffff)
+
+#define BAIKAL_REG_DEC_CTL5				BAIKAL_REG(8)
+#define BAIKAL_REG_DEC_CTL5_CONST_INTRA_E		BIT(31)
+#define BAIKAL_REG_DEC_CTL5_FILT_CTRL_PRES		BIT(30)
+#define BAIKAL_REG_DEC_CTL5_RDPIC_CNT_PRES		BIT(29)
+#define BAIKAL_REG_DEC_CTL5_8X8TRANS_FLAG_E		BIT(28)
+#define BAIKAL_REG_DEC_CTL5_REFPIC_MK_LEN(v)		(((v) & 0x7ff) << 17)
+#define BAIKAL_REG_DEC_CTL5_IDR_PIC_E			BIT(16)
+
+#define BAIKAL_REG_DEC_CTL6				BAIKAL_REG(9)
+#define BAIKAL_REG_DEC_CTL6_PPS_ID(v)			(((v) & 0xff) << 24)
+#define BAIKAL_REG_DEC_CTL6_REFIDX1_ACTIVE(v)		(((v) & 0x1f) << 19)
+#define BAIKAL_REG_DEC_CTL6_REFIDX0_ACTIVE(v)		(((v) & 0x1f) << 14)
+#define BAIKAL_REG_DEC_CTL6_POC_LENGTH(v)		((v) & 0xff)
+
+#define BAIKAL_REG_DEC_CTL7				BAIKAL_REG(11)
+#define BAIKAL_REG_DEC_CTL8				BAIKAL_REG(12)
+#define BAIKAL_REG_DEC_CTL8_IDR_PIC_ID_H10(v)		(((v) & 0xffff) << 16)
+
+#define BAIKAL_REG_DEC_CTL9				BAIKAL_REG(13)
+#define BAIKAL_REG_DEC_CTL9_START_CODE_E		BIT(31)
+#define BAIKAL_REG_DEC_CTL9_INIT_QP(v)			(((v) & 0x7f) << 24)
+
+#define BAIKAL_REG_FWD_PIC(i)				BAIKAL_REG(10 + i)
+#define BAIKAL_REG_FWD_PIC_PINIT_RLIST_F(i, v)		(((v) & 0x1f) << (5 * (i)))
+
+#define BAIKAL_REG_DEC_HEVC_VP9_CTL			BAIKAL_REG(12)
+#define BAIKAL_REG_DEC_HEVC_VP9_CTL2			BAIKAL_REG(13)
+
+#define BAIKAL_REG_REF_PIC(i)				BAIKAL_REG(30 + i)
+#define BAIKAL_REG_REF_PIC_REFER_NBR(i, v)		(((v) & 0xffff) << (16 * (i)))
+
+#define BAIKAL_REG_LONG_TERM_FLAGS			BAIKAL_REG(38)
+#define BAIKAL_REG_VALID_FLAGS				BAIKAL_REG(39)
+
+#define BAIKAL_REG_BD_REF_PIC(i)			BAIKAL_REG(14 + i)
+#define BAIKAL_REG_BD_REF_PIC_BINIT_RLIST_F(i, v)	(((v) & 0x1f) << (10 * (i)))
+#define BAIKAL_REG_BD_REF_PIC_BINIT_RLIST_B(i, v)	(((v) & 0x1f) << (5 + 10 * (i)))
+
+#define BAIKAL_REG_BD_P_REF_PIC				BAIKAL_REG(47)
+#define BAIKAL_REG_BD_P_REF_PIC_PINIT_RLIST_F(i, v)	(((v) & 0x1f) << (10 + 5 * (i)))
+
+#define BAIKAL_REG_REF_PIC_INIT_RLIST			BAIKAL_REG(19)
+#define BAIKAL_REG_REF_PIC_INIT_RLIST_B(v)		(((v) & 0x1f) << 5)
+#define BAIKAL_REG_REF_PIC_INIT_RLIST_F(v)		((v) & 0x1f)
+
+#define BAIKAL_REG_ERR_CONC				BAIKAL_REG(48)
+
+#define BAIKAL_REG_PRED_FLT				BAIKAL_REG(49)
+#define BAIKAL_REG_PRED_FLT_PRED_BC_TAP_0_0(v)		(((v) & 0x3ff) << 22)
+#define BAIKAL_REG_PRED_FLT_PRED_BC_TAP_0_1(v)		(((v) & 0x3ff) << 12)
+#define BAIKAL_REG_PRED_FLT_PRED_BC_TAP_0_2(v)		(((v) & 0x3ff) << 2)
+
+#define BAIKAL_REG_ADV_PREFETCH_CTRL			BAIKAL_REG(55)
+#define BAIKAL_REG_ADV_PREFETCH_CTRL_APF_THRESHOLD(v)	((v) & 0xffff)
+
+#define BAIKAL_REG_CONFIG2				BAIKAL_REG(58)
+
+#define BAIKAL_REG_DEC_OUT_BASE				BAIKAL_REG(65)
+
+#define BAIKAL_REG_REFER_BASE(i)			BAIKAL_REG(67 + 2 * i)
+
+#define BAIKAL_REG_DIR_MV_BASE				BAIKAL_REG(133)
+
+#define BAIKAL_REG_RLC_VLC_BASE				BAIKAL_REG(169)
+#define BAIKAL_HREG_RLC_VLC_BASE			BAIKAL_HREG(169, 0, GENMASK(31, 0))
+#define BAIKAL_REG_STREAM_BASE				BAIKAL_REG_RLC_VLC_BASE
+#define BAIKAL_HREG_STREAM_BASE				BAIKAL_HREG_RLC_VLC_BASE
+
+#define BAIKAL_REG_QTABLE_BASE				BAIKAL_REG(175)
+
+#define BAIKAL_VP9_LREF_STRIDE				BAIKAL_REG(42)
+#define BAIKAL_VP9_GREF_STRIDE				BAIKAL_REG(43)
+#define BAIKAL_VP9_AREF_STRIDE				BAIKAL_REG(44)
+#define BAIKAL_OUT_STRIDE				BAIKAL_REG(314)
+#define BAIKAL_PP_OUT_STRIDE				BAIKAL_REG(391)
+
+#define BAIKAL_PP_TILE_WR_BASE				BAIKAL_REG(363)
+#define BAIKAL_PP_TILE_RD_BASE				BAIKAL_REG(365)
+
+#endif /* BAIKAL_VPU_REGS_H_ */

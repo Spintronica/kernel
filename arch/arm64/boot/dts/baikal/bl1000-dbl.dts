@@ -1,0 +1,896 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device tree source for Baikal Electronics DBL v1.0 board
+ * Copyright (C) 2025 Baikal Electronics, JSC
+ */
+
+/dts-v1/;
+
+#include "bl1000.dtsi"
+
+/ {
+	model = "Baikal Electronics DBL";
+	compatible = "baikal,dbl", "baikal,bl1000";
+
+	aliases {
+		ethernet0 = &sc_gmac;
+	};
+
+	chosen { };
+#if !defined(USE_EXPBOARD_DBL_PL1) && \
+    !defined(USE_EXPBOARD_DBL_UDC)
+	leds {
+		compatible = "gpio-leds";
+
+		led0 {
+			gpios = <&portc 21 GPIO_ACTIVE_HIGH>;
+			pinctrl = <&sc_lsp_pin21_gpio32>;
+			default-state = "keep";
+			linux,default-trigger = "heartbeat";
+		};
+		led1 {
+			gpios = <&portc 22 GPIO_ACTIVE_HIGH>;
+			pinctrl = <&sc_lsp_pin22_gpio32>;
+			default-state = "keep";
+			linux,default-trigger = "heartbeat";
+		};
+		led2 {
+			gpios = <&portc 23 GPIO_ACTIVE_HIGH>;
+			pinctrl = <&sc_lsp_pin23_gpio32>;
+			default-state = "keep";
+			linux,default-trigger = "heartbeat";
+		};
+		led3 {
+			gpios = <&portc 24 GPIO_ACTIVE_HIGH>;
+			pinctrl = <&sc_lsp_pin24_gpio32>;
+			default-state = "keep";
+			linux,default-trigger = "heartbeat";
+		};
+	};
+#endif
+
+#if defined(USE_EXPBOARD_DBL_PL1) || \
+    defined(USE_EXPBOARD_DBL_UDC) || \
+    defined(USE_EXPBOARD_DBL_LTP) || \
+    defined(USE_EXPBOARD_DBL_UMC)
+	sc_sound_24M: sgtl5000-clock {
+		/* OT322524MJBA4SL */
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-accuracy = <100>;
+	};
+
+	reg_1v8: regulator-1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "1V8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	reg_3v3: regulator-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+#endif
+
+#if defined(USE_EXPBOARD_DBL_PL1)
+	sc-sound0 {
+		compatible = "baikal,snd-soc-baikal";
+		baikal,cpu-dai = <&sc_i2s0>;
+		baikal,codec = <&sgtl5000_pl1_0>;
+		baikal,codec-name = "sgtl5000";
+		baikal,dai-name = "HiFi-pl1-sc0";
+		baikal,stream-name = "HiFi-pl1-sc0";
+	};
+
+	sc-sound1 {
+		compatible = "baikal,snd-soc-baikal";
+		baikal,cpu-dai = <&sc_i2s1>;
+		baikal,codec = <&sgtl5000_pl1_1>;
+		baikal,codec-name = "sgtl5000";
+		baikal,dai-name = "HiFi-pl1-sc1";
+		baikal,stream-name = "HiFi-pl1-sc1";
+	};
+#endif
+
+#if defined(USE_EXPBOARD_DBL_UDC)
+	sc-sound0 {
+		compatible = "baikal,snd-soc-baikal";
+		baikal,cpu-dai = <&sc_i2s0>;
+		baikal,codec = <&sgtl5000_udc_0>;
+		baikal,codec-name = "sgtl5000";
+		baikal,dai-name = "HiFi-udc-sc0";
+		baikal,stream-name = "HiFi-udc-sc0";
+	};
+
+	sc-sound1 {
+		compatible = "baikal,snd-soc-baikal";
+		baikal,cpu-dai = <&sc_i2s1>;
+		baikal,codec = <&sgtl5000_udc_1>;
+		baikal,codec-name = "sgtl5000";
+		baikal,dai-name = "HiFi-udc-sc1";
+		baikal,stream-name = "HiFi-udc-sc1";
+	};
+#endif
+
+#if defined(USE_EXPBOARD_DBL_LTP)
+	hsp-sound1 {
+		compatible = "baikal,snd-soc-baikal";
+		baikal,cpu-dai = <&hsp_i2s1>;
+		baikal,codec = <&sgtl5000_ltp_1>;
+		baikal,codec-name = "sgtl5000";
+		baikal,dai-name = "HiFi-ltp-hsp1";
+		baikal,stream-name = "HiFi-ltp-hsp1";
+	};
+#endif
+
+#if defined(USE_EXPBOARD_DBL_UMC)
+	hsp-sound1 {
+		compatible = "baikal,snd-soc-baikal";
+		baikal,cpu-dai = <&hsp_i2s1>;
+		baikal,codec = <&sgtl5000_umc_1>;
+		baikal,codec-name = "sgtl5000";
+		baikal,dai-name = "HiFi-umc-hsp1";
+		baikal,stream-name = "HiFi-umc-hsp1";
+	};
+#endif
+};
+
+&ehsp_pcie0_p0 {
+	status = "okay";
+	num-lanes = <4>;
+};
+
+&ehsp_pcie1_p0 {
+	status = "okay";
+	num-lanes = <4>;
+};
+
+#if defined(USE_EDP_PANEL)
+&hsp_edp_phy {
+	status = "okay";
+};
+#endif
+
+&hsp_i2c0 { /* Connected to XP18 */
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin0_i2c0_scl>,
+		  <&hsp_lsp_pin1_i2c0_sda>;
+};
+
+&hsp_i2c1 { /* Connected to XP18 */
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin2_i2c1_scl>,
+		  <&hsp_lsp_pin3_i2c1_sda>;
+};
+
+&hsp_i2c3 { /* Connected to DIMM SPDs */
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin6_i2c3_scl>,
+		  <&hsp_lsp_pin7_i2c3_sda>;
+};
+
+&hsp_lsp_pinctrl0 {
+	status = "okay";
+};
+
+&hsp_lsp_pinctrl1 {
+	status = "okay";
+};
+
+&hsp_lsp_pinctrl2 {
+	status = "okay";
+};
+
+&hsp_mali {
+	status = "okay";
+};
+
+&hsp_vdec {
+	status = "okay";
+};
+
+#if defined(USE_EDP_PANEL)
+&hsp_vdu {
+	status = "okay";
+	dp-lanes = <4>;
+	backlight {
+		min-brightness-level = <10>;
+		default-brightness-level = <60>;
+		brightness-level-step = <2>;
+		pwm-frequency = <20000>;
+	};
+};
+#endif
+
+&hsp_venc {
+	status = "okay";
+};
+
+&mdio {
+	interrupt-parent = <&portc>;
+	interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+
+	ethphy: ethernet-phy@1 {
+		compatible = "ethernet-phy-ieee802.3-c22";
+		reg = <0x1>;
+	};
+};
+
+&sc_emmc1 {
+	status = "okay";
+	pinctrl = <&sc_emmc_mux_emmc1>,
+		  <&sc_emmc_hc1_1_8v>,
+		  <&sc_emmc_hc1_mem_pwrup>,
+		  <&sc_emmc_pu_hc1_cmd_dat_0_7>,
+		  <&sc_emmc_pd_hc1_dqs>;
+	bus-width = <8>;
+	no-sd;
+	no-sdio;
+	non-removable;
+	mmc-ddr-1_8v;
+	sdhci-caps-mask = <0x00000002 0x03000000>;
+	sdhci-caps = <0x0 0x40000>;
+};
+
+&sc_emmc2 {
+	status = "okay";
+	pinctrl = <&sc_emmc_mux_emmc2>,
+		  <&sc_emmc_hc2_1_8v>,
+		  <&sc_emmc_hc2_mem_pwrup>,
+		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
+		  <&sc_emmc_pd_hc2_dqs>;
+	bus-width = <8>;
+	no-sd;
+	no-sdio;
+	non-removable;
+	mmc-ddr-1_8v;
+	sdhci-caps-mask = <0x00000002 0x03000000>;
+	sdhci-caps = <0x0 0x40000>;
+};
+
+&sc_emmc_pinctrl {
+	status = "okay";
+};
+
+&sc_emmc_pu_pinctrl {
+	status = "okay";
+};
+
+&sc_emmc_pd_pinctrl {
+	status = "okay";
+};
+
+&sc_gmac {
+	status = "okay";
+	pinctrl = <&sc_gmac_sdio_bit0_mode1>,
+		  <&sc_lsp_pin1_gpio32>;
+
+	phy-handle = <&ethphy>;
+	phy-mode = "rgmii-rxid";
+
+	snps,reset-gpios = <&portc 1 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <0 10200 1000>;
+};
+
+&sc_gmac_sdio_pinctrl {
+	status = "okay";
+};
+
+&sc_gpio32 {
+	status = "okay";
+};
+
+&sc_lsp_pinctrl0 {
+	status = "okay";
+};
+
+&sc_lsp_pinctrl1 {
+	status = "okay";
+};
+
+&sc_lsp_pinctrl2 {
+	status = "okay";
+};
+
+&sc_uart2 { /* Connected to USB-UART bridge (CP2105) */
+	status = "okay";
+	pinctrl = <&sc_lsp_pin12_uart2_rxd>,
+		  <&sc_lsp_pin13_uart2_txd>;
+};
+
+&sc_pvt {
+	status = "okay";
+};
+
+&ddr_pvt {
+	status = "okay";
+};
+
+&hsp_pvt {
+	status = "okay";
+};
+
+&ehsp_pvt {
+	status = "okay";
+};
+
+&ca710_pvt {
+	status = "okay";
+};
+
+/****************************************************/
+/* Expansion boards for daughterboard slot1 (DTBs1) */
+/****************************************************/
+
+#if defined(USE_EXPBOARD_DBL_CHG)
+/****************************************************/
+/*                   DBL-CHG v1.0                   */
+/****************************************************/
+&sc_hda {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin14_hda_rst>,
+		  <&sc_lsp_pin15_hda_sync>,
+		  <&sc_lsp_pin16_hda_bclk>,
+		  <&sc_lsp_pin17_hda_sdo0>,
+		  <&sc_lsp_pin18_hda_sdi0>,
+		  <&sc_lsp_pin19_hda_sdo1>,
+		  <&sc_lsp_pin20_hda_sdi1>;
+};
+
+#elif defined(USE_EXPBOARD_DBL_PL1)
+/****************************************************/
+/*                   DBL-PL1 v1.0                   */
+/****************************************************/
+&hsp_usb1_l0 { /* Connected to USB B0 receptacle */
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&hsp_usb1_phy10g_phy0>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb1_l1 { /* Connected to USB B1 receptacle */
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&hsp_usb1_phy10g_phy0>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb1_phy10g {
+	status = "okay";
+};
+
+&hsp_usb1_phy10g_phy0 {
+	status = "okay";
+	cdns,num-lanes = <2>;
+};
+
+&sc_i2c2 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin4_i2c2_scl>,
+		  <&sc_lsp_pin5_i2c2_sda>;
+
+	i2c-mux@70 {
+		compatible = "nxp,pca9546";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		i2c@0 {
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			sgtl5000_pl1_0: codec@a {
+				compatible = "fsl,sgtl5000";
+				reg = <0xa>;
+				#sound-dai-cells = <0>;
+				clocks = <&sc_sound_24M>;
+				micbias-resistor-k-ohms = <2>;
+				micbias-voltage-m-volts = <3000>;
+				VDDA-supply = <&reg_3v3>;
+				VDDD-supply = <&reg_1v8>;
+				VDDIO-supply = <&reg_1v8>;
+			};
+		};
+
+		i2c@1 {
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			sgtl5000_pl1_1: codec@a {
+				compatible = "fsl,sgtl5000";
+				reg = <0xa>;
+				#sound-dai-cells = <0>;
+				clocks = <&sc_sound_24M>;
+				micbias-resistor-k-ohms = <2>;
+				micbias-voltage-m-volts = <3000>;
+				VDDA-supply = <&reg_3v3>;
+				VDDD-supply = <&reg_1v8>;
+				VDDIO-supply = <&reg_1v8>;
+			};
+		};
+	};
+};
+
+&sc_i2s0 {
+	status = "okay";
+	system-clock-frequency = <24000000>;
+	pinctrl = <&sc_lsp_pin16_i2s0_sck>,
+		  <&sc_lsp_pin17_i2s0_ws>,
+		  <&sc_lsp_pin18_i2s0_sdo>,
+		  <&sc_lsp_pin19_i2s0_sdi>;
+};
+
+&sc_i2s1 {
+	status = "okay";
+	system-clock-frequency = <24000000>;
+	pinctrl = <&sc_lsp_pin21_i2s1_sck>,
+		  <&sc_lsp_pin22_i2s1_ws>,
+		  <&sc_lsp_pin23_i2s1_sdo>,
+		  <&sc_lsp_pin24_i2s1_sdi>;
+};
+
+&sc_qspi {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin26_qspi_io0>,
+		  <&sc_lsp_pin27_qspi_io1>,
+		  <&sc_lsp_pin28_qspi_io2>,
+		  <&sc_lsp_pin29_qspi_io3>,
+		  <&sc_lsp_pin30_qspi_ss0>,
+		  <&sc_lsp_pin31_qspi_clk>;
+
+	flash@0 { /* W25Q256JWFI */
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <12500000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		status = "okay";
+	};
+};
+
+&sc_uart3 { /* Connected to HSP-UART3 via DBL-PL2 */
+	status = "okay";
+	pinctrl = <&sc_lsp_pin14_uart3_rxd>,
+		  <&sc_lsp_pin15_uart3_txd>;
+};
+
+#elif defined(USE_EXPBOARD_DBL_UDC)
+/****************************************************/
+/*                   DBL-UDC v1.2                   */
+/****************************************************/
+&ehsp_dp_phy {
+	status = "okay";
+};
+
+&ehsp_vdu {
+	status = "okay";
+	dp-lanes = <4>;
+};
+
+&hsp_usb1_l0 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "high-speed";
+};
+
+&hsp_usb1_l1 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "high-speed";
+};
+
+&sc_i2c2 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin4_i2c2_scl>,
+		  <&sc_lsp_pin5_i2c2_sda>;
+
+	tusb1142@10 {
+		compatible = "ti,tusb1142";
+		reg = <0x10>;
+	};
+
+	tusb1142@12 {
+		compatible = "ti,tusb1142";
+		reg = <0x12>;
+	};
+
+	tusb320@47 {
+		compatible = "ti,tusb320l";
+		reg = <0x47>;
+		interrupt-parent = <&portc>;
+		interrupts = <14 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	tusb320@67 {
+		compatible = "ti,tusb320l";
+		reg = <0x67>;
+		interrupt-parent = <&portc>;
+		interrupts = <15 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	i2c-mux@70 {
+		compatible = "nxp,pca9546";
+		reg = <0x70>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		i2c@0 {
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			sgtl5000_udc_0: codec@a {
+				compatible = "fsl,sgtl5000";
+				reg = <0xa>;
+				#sound-dai-cells = <0>;
+				clocks = <&sc_sound_24M>;
+				micbias-resistor-k-ohms = <2>;
+				micbias-voltage-m-volts = <3000>;
+				VDDA-supply = <&reg_3v3>;
+				VDDD-supply = <&reg_1v8>;
+				VDDIO-supply = <&reg_1v8>;
+			};
+		};
+
+		i2c@1 {
+			reg = <0x1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			sgtl5000_udc_1: codec@a {
+				compatible = "fsl,sgtl5000";
+				reg = <0xa>;
+				#sound-dai-cells = <0>;
+				clocks = <&sc_sound_24M>;
+				micbias-resistor-k-ohms = <2>;
+				micbias-voltage-m-volts = <3000>;
+				VDDA-supply = <&reg_3v3>;
+				VDDD-supply = <&reg_1v8>;
+				VDDIO-supply = <&reg_1v8>;
+			};
+		};
+	};
+};
+
+&sc_i2s0 {
+	status = "okay";
+	system-clock-frequency = <24000000>;
+	pinctrl = <&sc_lsp_pin16_i2s0_sck>,
+		  <&sc_lsp_pin17_i2s0_ws>,
+		  <&sc_lsp_pin18_i2s0_sdo>,
+		  <&sc_lsp_pin19_i2s0_sdi>;
+};
+
+&sc_i2s1 {
+	status = "okay";
+	system-clock-frequency = <24000000>;
+	pinctrl = <&sc_lsp_pin21_i2s1_sck>,
+		  <&sc_lsp_pin22_i2s1_ws>,
+		  <&sc_lsp_pin23_i2s1_sdo>,
+		  <&sc_lsp_pin24_i2s1_sdi>;
+};
+#endif
+
+/****************************************************/
+/* Expansion boards for daughterboard slot2 (DTBs2) */
+/****************************************************/
+
+#if defined(USE_EXPBOARD_DBL_LTP)
+/****************************************************/
+/*                   DBL-LTP v1.0                   */
+/****************************************************/
+&hsp_i2s1 {
+	status = "okay";
+	system-clock-frequency = <24000000>;
+	pinctrl = <&hsp_lsp_pin21_i2s1_sck>,
+		  <&hsp_lsp_pin22_i2s1_ws>,
+		  <&hsp_lsp_pin23_i2s1_sdo>,
+		  <&hsp_lsp_pin24_i2s1_sdi>;
+};
+
+&hsp_qspi {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin25_qspi_dm>,
+		  <&hsp_lsp_pin26_qspi_io0>,
+		  <&hsp_lsp_pin27_qspi_io1>,
+		  <&hsp_lsp_pin28_qspi_io2>,
+		  <&hsp_lsp_pin29_qspi_io3>,
+		  <&hsp_lsp_pin30_qspi_ss0>,
+		  <&hsp_lsp_pin31_qspi_clk>;
+
+	/* TODO: add MFC-1082 fingerprint sensor */
+};
+
+&sc_i2c3 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin6_i2c3_scl>,
+		  <&sc_lsp_pin7_i2c3_sda>;
+
+	sgtl5000_ltp_1: codec@a {
+		compatible = "fsl,sgtl5000";
+		reg = <0xa>;
+		#sound-dai-cells = <0>;
+		clocks = <&sc_sound_24M>;
+		micbias-resistor-k-ohms = <2>;
+		micbias-voltage-m-volts = <3000>;
+		VDDA-supply = <&reg_3v3>;
+		VDDD-supply = <&reg_1v8>;
+		VDDIO-supply = <&reg_1v8>;
+	};
+
+	light-sensor@23 {
+		compatible = "liteon,ltr553";
+		reg = <0x23>;
+	};
+};
+
+&sc_sdio { /* Connected to LTE/GPRS/GSM and Wi-Fi/Bluetooth controllers */
+#if 0 /* TODO */
+	status = "okay";
+#endif
+	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
+	bus-width = <4>;
+	max-frequency = <25000000>;
+};
+
+&sc_uart0 { /* Connected to Wi-Fi/Bluetooth controller (ESP32-WROOM-32) */
+	status = "okay";
+	pinctrl = <&sc_lsp_pin8_uart0_rxd>,
+		  <&sc_lsp_pin9_uart0_txd>;
+};
+
+&sc_uart1 { /* Connected to LTE/GPRS/GSM controller (SIM7600E) */
+	status = "okay";
+	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
+		  <&sc_lsp_pin11_uart1_txd>;
+};
+
+#elif defined(USE_EXPBOARD_DBL_PL2)
+/****************************************************/
+/*                   DBL-PL2 v1.0                   */
+/****************************************************/
+&hsp_i2c2 {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin4_i2c2_scl>,
+		  <&hsp_lsp_pin5_i2c2_sda>;
+
+	eeprom@54 {
+		compatible = "st,m24256";
+		reg = <0x54>;
+	};
+};
+
+&hsp_qspi {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin26_qspi_io0>,
+		  <&hsp_lsp_pin27_qspi_io1>,
+		  <&hsp_lsp_pin28_qspi_io2>,
+		  <&hsp_lsp_pin29_qspi_io3>,
+		  <&hsp_lsp_pin30_qspi_ss0>,
+		  <&hsp_lsp_pin31_qspi_clk>;
+
+	flash@0 { /* W25Q256JWFI */
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <12500000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		status = "okay";
+	};
+};
+
+&hsp_uart0 { /* Connected to XP1 */
+#if 0 /* TODO */
+	status = "okay";
+#endif
+	pinctrl = <&hsp_lsp_pin8_uart0_rxd>,
+		  <&hsp_lsp_pin9_uart0_txd>;
+};
+
+&hsp_uart1 { /* Connected to XP1 */
+#if 0 /* TODO */
+	status = "okay";
+#endif
+	pinctrl = <&hsp_lsp_pin10_uart1_rxd>,
+		  <&hsp_lsp_pin11_uart1_txd>;
+};
+
+&hsp_uart2 { /* Connected to USB-UART bridge (CP2103) */
+#if 0 /* TODO */
+	status = "okay";
+#endif
+	pinctrl = <&hsp_lsp_pin12_uart2_rxd>,
+		  <&hsp_lsp_pin13_uart2_txd>;
+};
+
+&hsp_uart3 { /* Connected to SC-UART3 via DBL-PL1 */
+#if 0 /* TODO */
+	status = "okay";
+#endif
+	pinctrl = <&hsp_lsp_pin14_uart3_rxd>,
+		  <&hsp_lsp_pin15_uart3_txd>;
+};
+
+&hsp_usb0_l0 { /* Connected to USB A0 receptacle */
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&hsp_usb0_phy10g_phy0>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb0_l1 { /* Connected to USB A1 receptacle */
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&hsp_usb0_phy10g_phy0>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb0_phy10g {
+	status = "okay";
+};
+
+&hsp_usb0_phy10g_phy0 {
+	status = "okay";
+	cdns,num-lanes = <2>;
+};
+
+&sc_i2c3 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin6_i2c3_scl>,
+		  <&sc_lsp_pin7_i2c3_sda>;
+
+	eeprom@54 {
+		compatible = "st,m24256";
+		reg = <0x54>;
+	};
+};
+
+&sc_uart0 { /* Connected to XP1 */
+	status = "okay";
+	pinctrl = <&sc_lsp_pin8_uart0_rxd>,
+		  <&sc_lsp_pin9_uart0_txd>;
+};
+
+&sc_uart1 { /* Connected to XP1 */
+	status = "okay";
+	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
+		  <&sc_lsp_pin11_uart1_txd>;
+};
+
+#elif defined(USE_EXPBOARD_DBL_UMC)
+/****************************************************/
+/*                   DBL-UMC v1.2                   */
+/****************************************************/
+&hsp_hda {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin14_hda_rst>,
+		  <&hsp_lsp_pin15_hda_sync>,
+		  <&hsp_lsp_pin16_hda_bclk>,
+		  <&hsp_lsp_pin17_hda_sdo0>,
+		  <&hsp_lsp_pin18_hda_sdi0>,
+		  <&hsp_lsp_pin19_hda_sdo1>,
+		  <&hsp_lsp_pin20_hda_sdi1>;
+};
+
+&hsp_i2s1 {
+	status = "okay";
+	system-clock-frequency = <24000000>;
+	pinctrl = <&hsp_lsp_pin21_i2s1_sck>,
+		  <&hsp_lsp_pin22_i2s1_ws>,
+		  <&hsp_lsp_pin23_i2s1_sdo>,
+		  <&hsp_lsp_pin24_i2s1_sdi>;
+};
+
+&hsp_qspi {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin25_qspi_dm>,
+		  <&hsp_lsp_pin26_qspi_io0>,
+		  <&hsp_lsp_pin27_qspi_io1>,
+		  <&hsp_lsp_pin28_qspi_io2>,
+		  <&hsp_lsp_pin29_qspi_io3>,
+		  <&hsp_lsp_pin30_qspi_ss0>,
+		  <&hsp_lsp_pin31_qspi_clk>;
+
+	flash@0 { /* W25Q256JWFI */
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <12500000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		status = "okay";
+	};
+};
+
+&hsp_usb0_l0 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "high-speed";
+};
+
+&hsp_usb0_l1 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "high-speed";
+};
+
+&sc_i2c3 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin6_i2c3_scl>,
+		  <&sc_lsp_pin7_i2c3_sda>;
+
+	sgtl5000_umc_1: codec@a {
+		compatible = "fsl,sgtl5000";
+		reg = <0xa>;
+		#sound-dai-cells = <0>;
+		clocks = <&sc_sound_24M>;
+		micbias-resistor-k-ohms = <2>;
+		micbias-voltage-m-volts = <3000>;
+		VDDA-supply = <&reg_3v3>;
+		VDDD-supply = <&reg_1v8>;
+		VDDIO-supply = <&reg_1v8>;
+	};
+
+	tusb1142@10 {
+		compatible = "ti,tusb1142";
+		reg = <0x10>;
+	};
+
+	tusb1142@12 {
+		compatible = "ti,tusb1142";
+		reg = <0x12>;
+	};
+
+	tusb320@47 {
+		compatible = "ti,tusb320l";
+		reg = <0x47>;
+		interrupt-parent = <&portf>;
+		interrupts = <4 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	tusb320@67 {
+		compatible = "ti,tusb320l";
+		reg = <0x67>;
+		interrupt-parent = <&portf>;
+		interrupts = <5 IRQ_TYPE_EDGE_RISING>;
+	};
+};
+
+&sc_sdio {
+#if 0 /* TODO */
+	status = "okay";
+#endif
+	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
+	bus-width = <4>;
+	max-frequency = <25000000>;
+};
+
+&sc_uart0 { /* Connected to USB-UART bridge (CP2105) */
+	status = "okay";
+	pinctrl = <&sc_lsp_pin8_uart0_rxd>,
+		  <&sc_lsp_pin9_uart0_txd>;
+};
+
+&sc_uart1 { /* Connected to USB-UART bridge (CP2105) */
+	status = "okay";
+	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
+		  <&sc_lsp_pin11_uart1_txd>;
+};
+#endif

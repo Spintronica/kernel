@@ -15,6 +15,7 @@
 #include "hantro.h"
 #include "hantro_vp9.h"
 #include "hantro_g2_regs.h"
+#include "baikal_vpu_regs.h"
 
 enum hantro_ref_frames {
 	INTRA_FRAME = 0,
@@ -132,7 +133,7 @@ static void config_output(struct hantro_ctx *ctx,
 	dma_addr_t luma_addr, chroma_addr, mv_addr;
 
 	hantro_reg_write(ctx->dev, &g2_out_dis, 0);
-	if (!ctx->dev->variant->legacy_regs)
+	if (!ctx->dev->variant->legacy_regs && !ctx->dev->variant->baikal_regs)
 		hantro_reg_write(ctx->dev, &g2_output_format, 0);
 
 	luma_addr = hantro_get_dec_buf_addr(ctx, &dst->base.vb.vb2_buf);
@@ -228,11 +229,19 @@ static void config_ref_registers(struct hantro_ctx *ctx,
 	hantro_reg_write(ctx->dev, &vp9_last_sign_bias,
 			 dec_params->ref_frame_sign_bias & V4L2_VP9_SIGN_BIAS_LAST ? 1 : 0);
 
-	hantro_reg_write(ctx->dev, &vp9_gref_sign_bias,
-			 dec_params->ref_frame_sign_bias & V4L2_VP9_SIGN_BIAS_GOLDEN ? 1 : 0);
+	if (ctx->dev->variant->baikal_regs) {
+		hantro_reg_write(ctx->dev, &gref_sign_bias_baikal,
+				 dec_params->ref_frame_sign_bias & V4L2_VP9_SIGN_BIAS_GOLDEN ? 1 : 0);
 
-	hantro_reg_write(ctx->dev, &vp9_aref_sign_bias,
-			 dec_params->ref_frame_sign_bias & V4L2_VP9_SIGN_BIAS_ALT ? 1 : 0);
+		hantro_reg_write(ctx->dev, &aref_sign_bias_baikal,
+				 dec_params->ref_frame_sign_bias & V4L2_VP9_SIGN_BIAS_ALT ? 1 : 0);
+	} else {
+		hantro_reg_write(ctx->dev, &vp9_gref_sign_bias,
+				 dec_params->ref_frame_sign_bias & V4L2_VP9_SIGN_BIAS_GOLDEN ? 1 : 0);
+
+		hantro_reg_write(ctx->dev, &vp9_aref_sign_bias,
+				 dec_params->ref_frame_sign_bias & V4L2_VP9_SIGN_BIAS_ALT ? 1 : 0);
+	}
 }
 
 static void recompute_tile_info(unsigned short *tile_info, unsigned int tiles, unsigned int sbs)
@@ -333,6 +342,10 @@ config_tiles(struct hantro_ctx *ctx,
 		cols = tile_c;
 		rows = tile_r;
 		hantro_reg_write(ctx->dev, &g2_tile_e, 1);
+		if (ctx->dev->variant->baikal_regs) {
+			vdpu_write(ctx->dev, ctx->dev->dma_handle, BAIKAL_PP_TILE_WR_BASE);
+			vdpu_write(ctx->dev, ctx->dev->dma_handle, BAIKAL_PP_TILE_RD_BASE);
+		}
 	} else {
 		tile_mem[0] = hantro_vp9_num_sbs(dst->vp9.width);
 		tile_mem[1] = hantro_vp9_num_sbs(dst->vp9.height);
@@ -342,7 +355,10 @@ config_tiles(struct hantro_ctx *ctx,
 		hantro_reg_write(ctx->dev, &g2_tile_e, 0);
 	}
 
-	if (ctx->dev->variant->legacy_regs) {
+	if (ctx->dev->variant->baikal_regs) {
+		hantro_reg_write(ctx->dev, &g2_num_tile_cols_baikal, cols);
+		hantro_reg_write(ctx->dev, &g2_num_tile_rows_baikal, rows);
+	} else if (ctx->dev->variant->legacy_regs) {
 		hantro_reg_write(ctx->dev, &g2_num_tile_cols_old, cols);
 		hantro_reg_write(ctx->dev, &g2_num_tile_rows_old, rows);
 	} else {
@@ -473,14 +489,26 @@ static void config_loop_filter(struct hantro_ctx *ctx, const struct v4l2_ctrl_vp
 
 	hantro_reg_write(ctx->dev, &vp9_filt_level, dec_params->lf.level);
 	hantro_reg_write(ctx->dev, &g2_out_filtering_dis, dec_params->lf.level == 0);
-	hantro_reg_write(ctx->dev, &vp9_filt_sharpness, dec_params->lf.sharpness);
 
-	hantro_reg_write(ctx->dev, &vp9_filt_ref_adj_0, d ? dec_params->lf.ref_deltas[0] : 0);
-	hantro_reg_write(ctx->dev, &vp9_filt_ref_adj_1, d ? dec_params->lf.ref_deltas[1] : 0);
-	hantro_reg_write(ctx->dev, &vp9_filt_ref_adj_2, d ? dec_params->lf.ref_deltas[2] : 0);
-	hantro_reg_write(ctx->dev, &vp9_filt_ref_adj_3, d ? dec_params->lf.ref_deltas[3] : 0);
-	hantro_reg_write(ctx->dev, &vp9_filt_mb_adj_0, d ? dec_params->lf.mode_deltas[0] : 0);
-	hantro_reg_write(ctx->dev, &vp9_filt_mb_adj_1, d ? dec_params->lf.mode_deltas[1] : 0);
+	if (ctx->dev->variant->baikal_regs) {
+		hantro_reg_write(ctx->dev, &filt_sharpness_baikal, dec_params->lf.sharpness);
+
+		hantro_reg_write(ctx->dev, &baikal_filt_ref_adj_0, d ? dec_params->lf.ref_deltas[0] : 0);
+		hantro_reg_write(ctx->dev, &baikal_filt_ref_adj_1, d ? dec_params->lf.ref_deltas[1] : 0);
+		hantro_reg_write(ctx->dev, &baikal_filt_ref_adj_2, d ? dec_params->lf.ref_deltas[2] : 0);
+		hantro_reg_write(ctx->dev, &baikal_filt_ref_adj_3, d ? dec_params->lf.ref_deltas[3] : 0);
+		hantro_reg_write(ctx->dev, &baikal_filt_mb_adj_0, d ? dec_params->lf.mode_deltas[0] : 0);
+		hantro_reg_write(ctx->dev, &baikal_filt_mb_adj_1, d ? dec_params->lf.mode_deltas[1] : 0);
+	} else {
+		hantro_reg_write(ctx->dev, &vp9_filt_sharpness, dec_params->lf.sharpness);
+
+		hantro_reg_write(ctx->dev, &vp9_filt_ref_adj_0, d ? dec_params->lf.ref_deltas[0] : 0);
+		hantro_reg_write(ctx->dev, &vp9_filt_ref_adj_1, d ? dec_params->lf.ref_deltas[1] : 0);
+		hantro_reg_write(ctx->dev, &vp9_filt_ref_adj_2, d ? dec_params->lf.ref_deltas[2] : 0);
+		hantro_reg_write(ctx->dev, &vp9_filt_ref_adj_3, d ? dec_params->lf.ref_deltas[3] : 0);
+		hantro_reg_write(ctx->dev, &vp9_filt_mb_adj_0, d ? dec_params->lf.mode_deltas[0] : 0);
+		hantro_reg_write(ctx->dev, &vp9_filt_mb_adj_1, d ? dec_params->lf.mode_deltas[1] : 0);
+	}
 }
 
 static void config_picture_dimensions(struct hantro_ctx *ctx, struct hantro_decoded_buffer *dst)
@@ -842,7 +870,13 @@ config_registers(struct hantro_ctx *ctx, const struct v4l2_ctrl_vp9_frame *dec_p
 
 	/* configure basic registers */
 	hantro_reg_write(ctx->dev, &g2_mode, VP9_DEC_MODE);
-	if (!ctx->dev->variant->legacy_regs) {
+	if (ctx->dev->variant->baikal_regs) {
+		hantro_reg_write(ctx->dev, &g2_strm_swap, 0);
+		hantro_reg_write(ctx->dev, &g2_dirmv_swap, 0);
+		hantro_reg_write(ctx->dev, &g2_pic_swap_baikal, 0);
+		hantro_reg_write(ctx->dev, &g2_tab_swap_baikal, 0);
+		hantro_reg_write(ctx->dev, &g2_ref_comp_bps_baikal, 1);
+	} else if (!ctx->dev->variant->legacy_regs) {
 		hantro_reg_write(ctx->dev, &g2_strm_swap, 0xf);
 		hantro_reg_write(ctx->dev, &g2_dirmv_swap, 0xf);
 		hantro_reg_write(ctx->dev, &g2_compress_swap, 0xf);
@@ -860,7 +894,10 @@ config_registers(struct hantro_ctx *ctx, const struct v4l2_ctrl_vp9_frame *dec_p
 	hantro_reg_write(ctx->dev, &g2_buswidth, BUS_WIDTH_128);
 	hantro_reg_write(ctx->dev, &g2_max_burst, 16);
 	hantro_reg_write(ctx->dev, &g2_apf_threshold, 8);
-	hantro_reg_write(ctx->dev, &g2_clk_gate_e, 1);
+	if (ctx->dev->variant->baikal_regs)
+		hantro_reg_write(ctx->dev, &g2_clk_gate_e_baikal, 1);
+	else
+		hantro_reg_write(ctx->dev, &g2_clk_gate_e, 1);
 	hantro_reg_write(ctx->dev, &g2_max_cb_size, 6);
 	hantro_reg_write(ctx->dev, &g2_min_cb_size, 3);
 	if (ctx->dev->variant->double_buffer)
@@ -891,7 +928,13 @@ int hantro_g2_vp9_dec_run(struct hantro_ctx *ctx)
 	const struct v4l2_ctrl_vp9_frame *decode_params;
 	struct vb2_v4l2_buffer *src;
 	struct vb2_v4l2_buffer *dst;
+	u32 stride;
 	int ret;
+
+	if (ctx->dev->variant->baikal_regs)
+		ctx->codec_ops->reset(ctx);
+
+	hantro_g2_check_idle(ctx->dev);
 
 	ret = start_prepare_run(ctx, &decode_params);
 	if (ret) {
@@ -905,6 +948,20 @@ int hantro_g2_vp9_dec_run(struct hantro_ctx *ctx)
 	config_registers(ctx, decode_params, src, dst);
 
 	hantro_end_prepare_run(ctx);
+
+	if (ctx->dev->variant->baikal_regs) {
+		if (decode_params->bit_depth == 10)
+			stride = ctx->dst_fmt.width * 5 |
+				 ctx->dst_fmt.width * 5 << 16;
+		else
+			stride = ctx->dst_fmt.width * 4 |
+				 ctx->dst_fmt.width * 4 << 16;
+
+		vdpu_write(ctx->dev, stride, BAIKAL_VP9_LREF_STRIDE);
+		vdpu_write(ctx->dev, stride, BAIKAL_VP9_GREF_STRIDE);
+		vdpu_write(ctx->dev, stride, BAIKAL_VP9_AREF_STRIDE);
+		vdpu_write(ctx->dev, stride, BAIKAL_OUT_STRIDE);
+	}
 
 	vdpu_write(ctx->dev, G2_REG_INTERRUPT_DEC_E, G2_REG_INTERRUPT);
 

@@ -7,6 +7,7 @@
 
 #include "hantro_hw.h"
 #include "hantro_g2_regs.h"
+#include "baikal_vpu_regs.h"
 
 static void prepare_tile_info_buffer(struct hantro_ctx *ctx)
 {
@@ -26,6 +27,10 @@ static void prepare_tile_info_buffer(struct hantro_ctx *ctx)
 	uniform_spacing = !!(pps->flags & V4L2_HEVC_PPS_FLAG_UNIFORM_SPACING);
 
 	hantro_reg_write(vpu, &g2_tile_e, tiles_enabled);
+	if (ctx->dev->variant->baikal_regs && tiles_enabled) {
+		vdpu_write(ctx->dev, ctx->dev->dma_handle, BAIKAL_PP_TILE_WR_BASE);
+		vdpu_write(ctx->dev, ctx->dev->dma_handle, BAIKAL_PP_TILE_RD_BASE);
+	}
 
 	max_log2_ctb_size = sps->log2_min_luma_coding_block_size_minus3 + 3 +
 			    sps->log2_diff_max_min_luma_coding_block_size;
@@ -43,8 +48,13 @@ static void prepare_tile_info_buffer(struct hantro_ctx *ctx)
 
 		vpu_debug(1, "Tiles enabled! %dx%d\n", num_tile_cols, num_tile_rows);
 
-		hantro_reg_write(vpu, &g2_num_tile_rows, num_tile_rows);
-		hantro_reg_write(vpu, &g2_num_tile_cols, num_tile_cols);
+		if (ctx->dev->variant->baikal_regs) {
+			hantro_reg_write(vpu, &g2_num_tile_rows_baikal, num_tile_rows);
+			hantro_reg_write(vpu, &g2_num_tile_cols_baikal, num_tile_cols);
+		} else {
+			hantro_reg_write(vpu, &g2_num_tile_rows, num_tile_rows);
+			hantro_reg_write(vpu, &g2_num_tile_cols, num_tile_cols);
+		}
 
 		/* write width + height for each tile in pic */
 		if (!uniform_spacing) {
@@ -91,8 +101,13 @@ static void prepare_tile_info_buffer(struct hantro_ctx *ctx)
 			}
 		}
 	} else {
-		hantro_reg_write(vpu, &g2_num_tile_rows, 1);
-		hantro_reg_write(vpu, &g2_num_tile_cols, 1);
+		if (ctx->dev->variant->baikal_regs) {
+			hantro_reg_write(vpu, &g2_num_tile_rows_baikal, 1);
+			hantro_reg_write(vpu, &g2_num_tile_cols_baikal, 1);
+		} else {
+			hantro_reg_write(vpu, &g2_num_tile_rows, 1);
+			hantro_reg_write(vpu, &g2_num_tile_cols, 1);
+		}
 
 		/* There's one tile, with dimensions equal to pic size. */
 		p[0] = pic_width_in_ctbs;
@@ -258,8 +273,13 @@ static void set_params(struct hantro_ctx *ctx)
 		hantro_reg_write(vpu, &g2_bit_depth_pcm_c, 0);
 	}
 
-	hantro_reg_write(vpu, &g2_start_code_e, 1);
-	hantro_reg_write(vpu, &g2_init_qp, pps->init_qp_minus26 + 26);
+	if (ctx->dev->variant->baikal_regs) {
+		hantro_reg_write(vpu, &g2_start_code_e_baikal, 1);
+		hantro_reg_write(vpu, &g2_init_qp_baikal, pps->init_qp_minus26 + 26);
+	} else {
+		hantro_reg_write(vpu, &g2_start_code_e, 1);
+		hantro_reg_write(vpu, &g2_init_qp, pps->init_qp_minus26 + 26);
+	}
 	hantro_reg_write(vpu, &g2_weight_pred_e,
 			 !!(pps->flags & V4L2_HEVC_PPS_FLAG_WEIGHTED_PRED));
 	hantro_reg_write(vpu, &g2_cabac_init_present,
@@ -506,7 +526,10 @@ static int set_ref(struct hantro_ctx *ctx)
 		hantro_write_addr(vpu, G2_REF_COMP_CHROMA_ADDR(i), 0);
 	}
 
-	hantro_reg_write(vpu, &g2_refer_lterm_e, dpb_longterm_e);
+	if (ctx->dev->variant->baikal_regs)
+		hantro_reg_write(vpu, &g2_refer_lterm_e_baikal, dpb_longterm_e);
+	else
+		hantro_reg_write(vpu, &g2_refer_lterm_e, dpb_longterm_e);
 
 	return 0;
 }
@@ -593,6 +616,11 @@ int hantro_g2_hevc_dec_run(struct hantro_ctx *ctx)
 	struct hantro_dev *vpu = ctx->dev;
 	int ret;
 
+	if (ctx->dev->variant->baikal_regs)
+		ctx->codec_ops->reset(ctx);
+
+	hantro_g2_check_idle(vpu);
+
 	/* Prepare HEVC decoder context. */
 	ret = hantro_hevc_dec_prepare_run(ctx);
 	if (ret)
@@ -614,21 +642,36 @@ int hantro_g2_hevc_dec_run(struct hantro_ctx *ctx)
 	hantro_end_prepare_run(ctx);
 
 	hantro_reg_write(vpu, &g2_mode, HEVC_DEC_MODE);
-	hantro_reg_write(vpu, &g2_clk_gate_e, 1);
+	if (ctx->dev->variant->baikal_regs)
+		hantro_reg_write(vpu, &g2_clk_gate_e_baikal, 1);
+	else
+		hantro_reg_write(vpu, &g2_clk_gate_e, 1);
 
 	/* Don't disable output */
 	hantro_reg_write(vpu, &g2_out_dis, 0);
 
-	hantro_reg_write(vpu, &g2_ref_compress_bypass, !ctx->hevc_dec.use_compression);
+	if (!ctx->dev->variant->baikal_regs)
+		hantro_reg_write(vpu, &g2_ref_compress_bypass, !ctx->hevc_dec.use_compression);
+	else
+		hantro_reg_write(ctx->dev, &g2_ref_comp_bps_baikal, !ctx->hevc_dec.use_compression);
 
 	/* Bus width and max burst */
 	hantro_reg_write(vpu, &g2_buswidth, BUS_WIDTH_128);
 	hantro_reg_write(vpu, &g2_max_burst, 16);
 
 	/* Swap */
-	hantro_reg_write(vpu, &g2_strm_swap, 0xf);
-	hantro_reg_write(vpu, &g2_dirmv_swap, 0xf);
-	hantro_reg_write(vpu, &g2_compress_swap, 0xf);
+	if (ctx->dev->variant->baikal_regs) {
+		hantro_reg_write(vpu, &g2_strm_swap, 0);
+		hantro_reg_write(vpu, &g2_dirmv_swap, 0);
+		hantro_reg_write(ctx->dev, &g2_pic_swap_baikal, 0);
+		hantro_reg_write(ctx->dev, &g2_tab_swap_baikal, 0);
+		vdpu_write(vpu, ctx->dst_fmt.width * (ctx->bit_depth == 10 ? 5 : 4) |
+				ctx->dst_fmt.width * (ctx->bit_depth == 10 ? 5 : 4) << 16, BAIKAL_OUT_STRIDE);
+	} else {
+		hantro_reg_write(vpu, &g2_strm_swap, 0xf);
+		hantro_reg_write(vpu, &g2_dirmv_swap, 0xf);
+		hantro_reg_write(vpu, &g2_compress_swap, 0xf);
+	}
 
 	/* Start decoding! */
 	vdpu_write(vpu, G2_REG_INTERRUPT_DEC_E, G2_REG_INTERRUPT);

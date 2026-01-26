@@ -410,6 +410,404 @@ static int elba_drv_init(struct platform_device *pdev)
 	return 0;
 }
 
+static int bl1000_drv_init(struct platform_device *pdev)
+{
+	struct sdhci_host *host = platform_get_drvdata(pdev);
+
+	host->flags &= ~SDHCI_SIGNALING_330;
+
+	return 0;
+}
+
+static u8 bl1000_read_b(struct sdhci_host *host, int reg)
+{
+	if ((reg & 0x3) == 0x3) {
+		return readl(host->ioaddr + (reg & ~0x3)) >> 24;
+	} else if ((reg & 0x3) == 0x2) {
+		return readl(host->ioaddr + (reg & ~0x3)) >> 16;
+	} else if ((reg & 0x3) == 0x1) {
+		return readw(host->ioaddr + (reg & ~0x3)) >> 8;
+	} else {
+		return readb(host->ioaddr + reg);
+	}
+}
+
+static u16 bl1000_read_w(struct sdhci_host *host, int reg)
+{
+	if ((reg & 0x3) == 0x2) {
+		return readl(host->ioaddr + (reg & ~0x3)) >> 16;
+	} else {
+		return readw(host->ioaddr + reg);
+	}
+}
+
+static void bl1000_write_b(struct sdhci_host *host, u8 val, int reg)
+{
+	u16 val16;
+	u32 val32;
+
+	if ((reg & 0x3) == 0x3) {
+		val32  = readl(host->ioaddr + (reg & ~0x3));
+		val32 &= ~(0xff << 24);
+		val32 |= val << 24;
+		writel(val32, host->ioaddr + (reg & ~0x3));
+	} else if ((reg & 0x3) == 0x2) {
+		val32  = readl(host->ioaddr + (reg & ~0x3));
+		val32 &= ~(0xff << 16);
+		val32 |= val << 16;
+		writel(val32, host->ioaddr + (reg & ~0x3));
+	} else if ((reg & 0x3) == 0x1) {
+		val16  = readw(host->ioaddr + (reg & ~0x3));
+		val16 &= ~(0xff << 8);
+		val16 |= val << 8;
+		writew(val16, host->ioaddr + (reg & ~0x3));
+	} else {
+		writeb(val, host->ioaddr + reg);
+	}
+}
+
+static void bl1000_write_w(struct sdhci_host *host, u16 val, int reg)
+{
+	u32 val32;
+
+	if ((reg & 0x3) == 0x2) {
+		val32  = readl(host->ioaddr + (reg & ~0x3));
+		val32 &= ~(0xffff << 16);
+		val32 |= val << 16;
+		writel(val32, host->ioaddr + (reg & ~0x3));
+	} else {
+		writew(val, host->ioaddr + reg);
+	}
+}
+
+#define SDHCI_CDNS_HRS00			0x000
+#define SDHCI_CDNS_HRS00_SWR			BIT(0)
+
+#define SDHCI_CDNS_HRS05			0x014
+
+#define SDHCI_CDNS_HRS07			0x01c
+#define SDHCI_CDNS_HRS07_IDELAY_VAL		GENMASK(4, 0)
+#define SDHCI_CDNS_HRS07_RW_COMPENSATE		GENMASK(20, 16)
+
+#define SDHCI_CDNS_HRS09			0x024
+#define SDHCI_CDNS_HRS09_PHY_SW_RST		BIT(0)
+#define SDHCI_CDNS_HRS09_PHY_INIT_COMPLETE	BIT(1)
+#define SDHCI_CDNS_HRS09_EXTENDED_RD_MODE	BIT(2)
+#define SDHCI_CDNS_HRS09_EXTENDED_WR_MODE	BIT(3)
+#define SDHCI_CDNS_HRS09_RD_CMD_EN		BIT(15)
+#define SDHCI_CDNS_HRS09_RD_DATA_EN		BIT(16)
+
+#define SDHCI_CDNS_HRS10			0x028
+#define SDHCI_CDNS_HRS10_HCSDCLKADJ		GENMASK(19, 16)
+
+#define SDHCI_CDNS_HRS11			0x02c
+#define SDHCI_CDNS_HRS11_EMMC_RST		BIT(0)
+
+#define SDHCI_CDNS_HRS16			0x040
+#define SDHCI_CDNS_HRS16_WRCMD0_DLY		GENMASK(3, 0)
+#define SDHCI_CDNS_HRS16_WRCMD1_DLY		GENMASK(7, 4)
+#define SDHCI_CDNS_HRS16_WRDATA0_DLY		GENMASK(11, 8)
+#define SDHCI_CDNS_HRS16_WRDATA1_DLY		GENMASK(15, 12)
+#define SDHCI_CDNS_HRS16_WRCMD0_SDCLK_DLY	GENMASK(19, 16)
+#define SDHCI_CDNS_HRS16_WRCMD1_SDCLK_DLY	GENMASK(23, 20)
+#define SDHCI_CDNS_HRS16_WRDATA0_SDCLK_DLY	GENMASK(27, 24)
+#define SDHCI_CDNS_HRS16_WRDATA1_SDCLK_DLY	GENMASK(31, 28)
+
+#define SDHCI_CDNS_PHY_DQ_TIMING_REG				0x2000
+#define SDHCI_CDNS_PHY_DQ_TIMING_DATA_SELECT_OE_END		GENMASK(2, 0)
+#define SDHCI_CDNS_PHY_DQ_TIMING_IO_MASK_START			GENMASK(26, 24)
+#define SDHCI_CDNS_PHY_DQ_TIMING_IO_MASK_END			GENMASK(29, 27)
+#define SDHCI_CDNS_PHY_DQ_TIMING_IO_MASK_ALWAYS_ON		BIT(31)
+
+#define SDHCI_CDNS_PHY_DQS_TIMING_REG				0x2004
+#define SDHCI_CDNS_PHY_DQS_TIMING_USE_PHONY_DQS_CMD		BIT(19)
+#define SDHCI_CDNS_PHY_DQS_TIMING_USE_PHONY_DQS			BIT(20)
+#define SDHCI_CDNS_PHY_DQS_TIMING_USE_LPBK_DQS			BIT(21)
+#define SDHCI_CDNS_PHY_DQS_TIMING_USE_EXT_LPBK_DQS		BIT(22)
+
+#define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_REG			0x2008
+#define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_GATE_CFG_ALWAYS_ON	BIT(6)
+#define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_UNDERRUN_SUPPRESS		BIT(18)
+#define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_RD_DEL_SEL		GENMASK(24, 19)
+#define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_SYNC_METHOD		BIT(31)
+
+#define SDHCI_CDNS_PHY_DLL_MASTER_CTRL_REG			0x200c
+#define SDHCI_CDNS_PHY_DLL_MASTER_CTRL_DLL_START_POINT		GENMASK(7, 0)
+#define SDHCI_CDNS_PHY_DLL_MASTER_CTRL_PHASE_DETECT_SEL		GENMASK(22, 20)
+#define SDHCI_CDNS_PHY_DLL_MASTER_CTRL_DLL_BYPASS_MODE		BIT(23)
+
+#define SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_REG			0x2010
+#define SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY		GENMASK(7, 0)
+#define SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WR_DELAY		GENMASK(15, 8)
+#define SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WRDQS_DELAY		GENMASK(23, 16)
+#define SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY	GENMASK(31,24)
+
+#define SDHCI_CDNS_PHY_CTRL_REG					0x2080
+#define SDHCI_CDNS_PHY_CTRL_PHONY_DQS_TIMING			GENMASK(8, 4)
+
+#define SDHCI_CDNS_PHY_SW_RST_TIMEOUT	20000
+
+static int bl1000_dfi_init(struct sdhci_cdns_priv *priv, unsigned int timing,
+			   unsigned int tune)
+{
+	u32 val;
+	u32 read_dqs_cmd_delay;
+
+	writel(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
+	val = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
+	read_dqs_cmd_delay = FIELD_GET(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY, val);
+
+	/* Assert PHY reset */
+	val = readl(priv->hrs_addr + SDHCI_CDNS_HRS09);
+	val &= ~SDHCI_CDNS_HRS09_PHY_SW_RST;
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS09);
+
+	/* Select phy_dqs_timing_reg, enable phony dqs for card initialization */
+	writel(SDHCI_CDNS_PHY_DQS_TIMING_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
+	val = SDHCI_CDNS_PHY_DQS_TIMING_USE_EXT_LPBK_DQS |
+	      SDHCI_CDNS_PHY_DQS_TIMING_USE_LPBK_DQS;
+	if (timing != MMC_TIMING_MMC_HS400)
+		val |= SDHCI_CDNS_PHY_DQS_TIMING_USE_PHONY_DQS |
+		       SDHCI_CDNS_PHY_DQS_TIMING_USE_PHONY_DQS_CMD;
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS05);
+
+	writel(SDHCI_CDNS_PHY_GATE_LPBK_CTRL_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
+	val = SDHCI_CDNS_PHY_GATE_LPBK_CTRL_SYNC_METHOD                |
+	      FIELD_PREP(SDHCI_CDNS_PHY_GATE_LPBK_CTRL_RD_DEL_SEL, 52) |
+	      SDHCI_CDNS_PHY_GATE_LPBK_CTRL_UNDERRUN_SUPPRESS          |
+	      SDHCI_CDNS_PHY_GATE_LPBK_CTRL_GATE_CFG_ALWAYS_ON;
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS05);
+
+	writel(SDHCI_CDNS_PHY_DLL_MASTER_CTRL_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
+	val  = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
+	val &= ~(SDHCI_CDNS_PHY_DLL_MASTER_CTRL_PHASE_DETECT_SEL |
+		 SDHCI_CDNS_PHY_DLL_MASTER_CTRL_DLL_START_POINT);
+	val |= FIELD_PREP(SDHCI_CDNS_PHY_DLL_MASTER_CTRL_DLL_START_POINT, 4) |
+	       FIELD_PREP(SDHCI_CDNS_PHY_DLL_MASTER_CTRL_PHASE_DETECT_SEL, 2);
+	if (timing == MMC_TIMING_MMC_HS200 || timing == MMC_TIMING_MMC_HS400 ||
+	    timing == MMC_TIMING_UHS_SDR104)
+		val &= ~SDHCI_CDNS_PHY_DLL_MASTER_CTRL_DLL_BYPASS_MODE;
+	else
+		val |= SDHCI_CDNS_PHY_DLL_MASTER_CTRL_DLL_BYPASS_MODE;
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS05);
+
+	writel(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
+	if (timing == MMC_TIMING_MMC_HS400)
+		val = FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY, 64)  |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WR_DELAY, 75)    |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WRDQS_DELAY, 77) |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY, read_dqs_cmd_delay);
+	else if (timing == MMC_TIMING_MMC_HS200 ||
+		 timing == MMC_TIMING_UHS_SDR104) {
+		uint32_t tune_val = 0xFF & ((tune << 8) / 40); // N * 256 / 40
+
+		val = FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY, tune_val) |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WR_DELAY, 77)         |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WRDQS_DELAY, 77)      |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY, tune_val);
+	}
+	else if (timing == MMC_TIMING_UHS_DDR50)
+		val = FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY, 64)  |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WR_DELAY, 32)    |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WRDQS_DELAY, 32) |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY, 64);
+	else
+		val = FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY, 0)  |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WR_DELAY, 0)    |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WRDQS_DELAY, 0) |
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY, 0);
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS05);
+
+	/* Deassert PHY reset */
+	val = readl(priv->hrs_addr + SDHCI_CDNS_HRS09);
+	val |= SDHCI_CDNS_HRS09_PHY_SW_RST;
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS09);
+	if (readl_poll_timeout(priv->hrs_addr + SDHCI_CDNS_HRS09, val,
+			       val & SDHCI_CDNS_HRS09_PHY_INIT_COMPLETE, 0,
+			       SDHCI_CDNS_PHY_SW_RST_TIMEOUT))
+		return -ETIMEDOUT;
+
+	writel(SDHCI_CDNS_PHY_DQ_TIMING_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
+	val  = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
+	val &= ~(SDHCI_CDNS_PHY_DQ_TIMING_IO_MASK_ALWAYS_ON |
+		 SDHCI_CDNS_PHY_DQ_TIMING_IO_MASK_END       |
+		 SDHCI_CDNS_PHY_DQ_TIMING_IO_MASK_START     |
+		 SDHCI_CDNS_PHY_DQ_TIMING_DATA_SELECT_OE_END);
+	val |= FIELD_PREP(SDHCI_CDNS_PHY_DQ_TIMING_DATA_SELECT_OE_END, 1);
+	if (timing != MMC_TIMING_SD_HS && timing != MMC_TIMING_UHS_SDR12 &&
+	    timing != MMC_TIMING_UHS_SDR25 && timing != MMC_TIMING_UHS_SDR50 &&
+	    timing != MMC_TIMING_UHS_DDR50)
+	       val |= FIELD_PREP(SDHCI_CDNS_PHY_DQ_TIMING_IO_MASK_END, 1);
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS05);
+
+	val = readl(priv->hrs_addr + SDHCI_CDNS_HRS09);
+	val |= SDHCI_CDNS_HRS09_RD_CMD_EN | SDHCI_CDNS_HRS09_RD_DATA_EN;
+	if (timing == MMC_TIMING_MMC_HS200 || timing == MMC_TIMING_MMC_HS400 ||
+	    timing == MMC_TIMING_UHS_SDR104)
+		val &= ~(SDHCI_CDNS_HRS09_EXTENDED_RD_MODE |
+			 SDHCI_CDNS_HRS09_EXTENDED_WR_MODE);
+	else
+		val |= SDHCI_CDNS_HRS09_EXTENDED_RD_MODE |
+		       SDHCI_CDNS_HRS09_EXTENDED_WR_MODE;
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS09);
+
+	val = readl(priv->hrs_addr + SDHCI_CDNS_HRS10);
+	val &= ~SDHCI_CDNS_HRS10_HCSDCLKADJ;
+	if (timing == MMC_TIMING_LEGACY || timing == MMC_TIMING_MMC_HS ||
+	    timing == MMC_TIMING_MMC_DDR52 ||
+	    timing == MMC_TIMING_UHS_SDR12 || timing == MMC_TIMING_UHS_DDR50)
+		val |= FIELD_PREP(SDHCI_CDNS_HRS10_HCSDCLKADJ, 2);
+	else if (timing == MMC_TIMING_SD_HS || timing == MMC_TIMING_UHS_SDR25)
+		val |= FIELD_PREP(SDHCI_CDNS_HRS10_HCSDCLKADJ, 3);
+	else if (timing == MMC_TIMING_UHS_SDR50)
+		val |= FIELD_PREP(SDHCI_CDNS_HRS10_HCSDCLKADJ, 5);
+	else if (timing == MMC_TIMING_MMC_HS200 || timing == MMC_TIMING_MMC_HS400 ||
+		 timing == MMC_TIMING_UHS_SDR104)
+		val |= FIELD_PREP(SDHCI_CDNS_HRS10_HCSDCLKADJ, 8);
+	else
+		return -EINVAL;
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS10);
+
+	val = 0;
+	switch (timing) {
+	case MMC_TIMING_LEGACY:
+	case MMC_TIMING_MMC_HS:
+	case MMC_TIMING_MMC_HS200:
+	case MMC_TIMING_UHS_SDR12:
+	case MMC_TIMING_UHS_SDR104:
+		val |= FIELD_PREP(SDHCI_CDNS_HRS16_WRCMD0_DLY, 1) |
+		       FIELD_PREP(SDHCI_CDNS_HRS16_WRDATA0_DLY, 1);
+		break;
+	case MMC_TIMING_SD_HS:
+	case MMC_TIMING_UHS_SDR25:
+	case MMC_TIMING_UHS_SDR50:
+		break;
+	case MMC_TIMING_MMC_DDR52:
+	case MMC_TIMING_MMC_HS400:
+		val |= FIELD_PREP(SDHCI_CDNS_HRS16_WRCMD0_DLY, 1);
+		fallthrough;
+	case MMC_TIMING_UHS_DDR50:
+		val |= FIELD_PREP(SDHCI_CDNS_HRS16_WRDATA0_SDCLK_DLY, 1) |
+		       FIELD_PREP(SDHCI_CDNS_HRS16_WRDATA1_SDCLK_DLY, 1);
+		break;
+	default:
+		return -EINVAL;
+	}
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS16);
+
+	val = 0;
+	switch (timing) {
+	case MMC_TIMING_LEGACY:
+	case MMC_TIMING_MMC_HS:
+	case MMC_TIMING_MMC_HS200:
+		val |= FIELD_PREP(SDHCI_CDNS_HRS07_IDELAY_VAL, 1);
+		fallthrough;
+	case MMC_TIMING_UHS_SDR12:
+	case MMC_TIMING_UHS_SDR104:
+		val |= FIELD_PREP(SDHCI_CDNS_HRS07_RW_COMPENSATE, 9);
+		break;
+	case MMC_TIMING_MMC_DDR52:
+	case MMC_TIMING_MMC_HS400:
+		val |= FIELD_PREP(SDHCI_CDNS_HRS07_IDELAY_VAL, 1);
+		fallthrough;
+	case MMC_TIMING_SD_HS:
+	case MMC_TIMING_UHS_SDR25:
+	case MMC_TIMING_UHS_SDR50:
+	case MMC_TIMING_UHS_DDR50:
+		val |= FIELD_PREP(SDHCI_CDNS_HRS07_RW_COMPENSATE, 8);
+		break;
+	default:
+		return -EINVAL;
+	}
+	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS07);
+
+	return 0;
+}
+
+static void bl1000_set_uhs_signaling(struct sdhci_host *host,
+				     unsigned int timing)
+{
+	struct sdhci_cdns_priv *priv = sdhci_cdns_priv(host);
+	u16 ctrl_2;
+
+	if (bl1000_dfi_init(priv, timing, 0)) {
+		dev_err(mmc_dev(host->mmc), "%s: DFI init error\n", __func__);
+		return;
+	}
+
+	sdhci_cdns_set_emmc_mode(priv, SDHCI_CDNS_HRS06_MODE_SD);
+
+	ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+	/* Select Bus Speed Mode for host */
+	ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
+	if ((timing == MMC_TIMING_LEGACY) ||
+	    (timing == MMC_TIMING_UHS_SDR12))
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR12;
+	else if ((timing == MMC_TIMING_UHS_SDR25) ||
+		 (timing == MMC_TIMING_MMC_HS) ||
+		 (timing == MMC_TIMING_SD_HS))
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR25;
+	else if (timing == MMC_TIMING_UHS_SDR50)
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR50;
+	else if ((timing == MMC_TIMING_MMC_HS200) ||
+		 (timing == MMC_TIMING_UHS_SDR104))
+		ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
+	else if ((timing == MMC_TIMING_UHS_DDR50) ||
+		 (timing == MMC_TIMING_MMC_DDR52) ||
+		 (timing == MMC_TIMING_MMC_HS400))
+		ctrl_2 |= SDHCI_CTRL_UHS_DDR50;
+	sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+}
+
+static int bl1000_execute_tuning(struct sdhci_host *host, u32 opcode)
+{
+	struct sdhci_cdns_priv *priv = sdhci_cdns_priv(host);
+	int cur_streak = 0;
+	int max_streak = 0;
+	int end_of_streak = 0;
+	int i;
+
+	if (host->timing != MMC_TIMING_MMC_HS200 &&
+	    host->timing != MMC_TIMING_UHS_SDR104)
+		return 0;
+
+	for (i = 0; i < SDHCI_CDNS_MAX_TUNING_LOOP; i++) {
+		int ret = bl1000_dfi_init(priv, MMC_TIMING_MMC_HS200, i);
+		if (ret)
+			return ret;
+
+		if (mmc_send_tuning(host->mmc, opcode, NULL)) { /* bad */
+			cur_streak = 0;
+		} else { /* good */
+			cur_streak++;
+			if (cur_streak > max_streak) {
+				max_streak = cur_streak;
+				end_of_streak = i;
+			}
+		}
+	}
+
+	if (!max_streak) {
+		dev_err(mmc_dev(host->mmc), "no tuning point found\n");
+		return -EIO;
+	}
+
+	return bl1000_dfi_init(priv, MMC_TIMING_MMC_HS200, end_of_streak - max_streak / 2);
+}
+
+static const struct sdhci_ops sdhci_cdns_bl1000_ops = {
+	.read_b = bl1000_read_b,
+	.read_w = bl1000_read_w,
+	.write_b = bl1000_write_b,
+	.write_w = bl1000_write_w,
+	.set_clock = sdhci_set_clock,
+	.get_timeout_clock = sdhci_cdns_get_timeout_clock,
+	.set_bus_width = sdhci_set_bus_width,
+	.reset = sdhci_reset,
+	.platform_execute_tuning = bl1000_execute_tuning,
+	.set_uhs_signaling = bl1000_set_uhs_signaling,
+};
+
 static const struct sdhci_ops sdhci_cdns_ops = {
 	.set_clock = sdhci_set_clock,
 	.get_timeout_clock = sdhci_cdns_get_timeout_clock,
@@ -417,6 +815,13 @@ static const struct sdhci_ops sdhci_cdns_ops = {
 	.reset = sdhci_reset,
 	.platform_execute_tuning = sdhci_cdns_execute_tuning,
 	.set_uhs_signaling = sdhci_cdns_set_uhs_signaling,
+};
+
+static const struct sdhci_cdns_drv_data sdhci_cdns_bl1000_drv_data = {
+	.init = bl1000_drv_init,
+	.pltfm_data = {
+		.ops = &sdhci_cdns_bl1000_ops,
+	},
 };
 
 static const struct sdhci_cdns_drv_data sdhci_cdns_uniphier_drv_data = {
@@ -594,6 +999,10 @@ static const struct dev_pm_ops sdhci_cdns_pm_ops = {
 };
 
 static const struct of_device_id sdhci_cdns_match[] = {
+	{
+		.compatible = "baikal,bl1000-sd4hc",
+		.data = &sdhci_cdns_bl1000_drv_data,
+	},
 	{
 		.compatible = "socionext,uniphier-sd4hc",
 		.data = &sdhci_cdns_uniphier_drv_data,

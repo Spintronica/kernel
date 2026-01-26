@@ -6,7 +6,10 @@ hantro-vpu-y += \
 		hantro_drv.o \
 		hantro_v4l2.o \
 		hantro_postproc.o \
+		hantro_boolenc.o \
 		hantro_h1_jpeg_enc.o \
+		hantro_h1_vp8_enc.o \
+		hantro_h1_h264_enc.o \
 		hantro_g1.o \
 		hantro_g1_h264_dec.o \
 		hantro_g1_mpeg2_dec.o \
@@ -42,3 +45,7 @@ hantro-vpu-$(CONFIG_VIDEO_HANTRO_SUNXI) += \
 
 hantro-vpu-$(CONFIG_VIDEO_HANTRO_STM32MP25) += \
 		stm32mp25_vpu_hw.o
+
+hantro-vpu-$(CONFIG_VIDEO_HANTRO_BAIKAL) += \
+		baikal_vpu_hw.o \
+		baikal_vpu_hw_h264_dec.o

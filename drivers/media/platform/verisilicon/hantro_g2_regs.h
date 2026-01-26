@@ -36,6 +36,7 @@
 
 #define HEVC_DEC_MODE			0xc
 #define VP9_DEC_MODE			0xd
+#define H264_HIGH_10_DEC_MODE		0xf
 
 #define BUS_WIDTH_32			0
 #define BUS_WIDTH_64			1
@@ -47,9 +48,11 @@
 
 #define g2_strm_swap		G2_DEC_REG(2, 28, 0xf)
 #define g2_strm_swap_old	G2_DEC_REG(2, 27, 0x1f)
+#define g2_pic_swap_baikal	G2_DEC_REG(2, 24, 0xf)
 #define g2_pic_swap		G2_DEC_REG(2, 22, 0x1f)
 #define g2_dirmv_swap		G2_DEC_REG(2, 20, 0xf)
 #define g2_dirmv_swap_old	G2_DEC_REG(2, 17, 0x1f)
+#define g2_tab_swap_baikal	G2_DEC_REG(2, 12, 0xf)
 #define g2_tab0_swap_old	G2_DEC_REG(2, 12, 0x1f)
 #define g2_tab1_swap_old	G2_DEC_REG(2, 7, 0x1f)
 #define g2_tab2_swap_old	G2_DEC_REG(2, 2, 0x1f)
@@ -57,6 +60,7 @@
 #define g2_mode			G2_DEC_REG(3, 27, 0x1f)
 #define g2_compress_swap	G2_DEC_REG(3, 20, 0xf)
 #define g2_ref_compress_bypass	G2_DEC_REG(3, 17, 0x1)
+#define g2_ref_comp_bps_baikal	G2_DEC_REG(3, 8, 0x1)
 #define g2_out_rs_e		G2_DEC_REG(3, 16, 0x1)
 #define g2_out_dis		G2_DEC_REG(3, 15, 0x1)
 #define g2_out_filtering_dis	G2_DEC_REG(3, 14, 0x1)
@@ -116,24 +120,32 @@
 #define g2_hdr_skip_length	G2_DEC_REG(9, 0,  0x3fff)
 
 #define g2_start_code_e		G2_DEC_REG(10, 31, 0x1)
+#define g2_start_code_e_baikal	G2_DEC_REG(13, 31, 0x1)
 #define g2_init_qp_old		G2_DEC_REG(10, 25, 0x3f)
 #define g2_init_qp		G2_DEC_REG(10, 24, 0x7f)
+#define g2_init_qp_baikal	G2_DEC_REG(13, 24, 0x7f)
 #define g2_num_tile_cols_old	G2_DEC_REG(10, 20, 0x1f)
 #define g2_num_tile_cols	G2_DEC_REG(10, 19, 0x1f)
+#define g2_num_tile_cols_baikal	G2_DEC_REG(10, 17, 0x7f)
 #define g2_num_tile_rows_old	G2_DEC_REG(10, 15, 0x1f)
 #define g2_num_tile_rows	G2_DEC_REG(10, 14, 0x1f)
+#define g2_num_tile_rows_baikal	G2_DEC_REG(10, 12, 0x1f)
 #define g2_tile_e		G2_DEC_REG(10, 1,  0x1)
 #define g2_entropy_sync_e	G2_DEC_REG(10, 0,  0x1)
 
 #define vp9_transform_mode	G2_DEC_REG(11, 27, 0x7)
 #define vp9_filt_sharpness	G2_DEC_REG(11, 21, 0x7)
+#define filt_sharpness_baikal	G2_DEC_REG(30, 28, 0x7)
 #define vp9_mcomp_filt_type	G2_DEC_REG(11,  8, 0x7)
 #define vp9_high_prec_mv_e	G2_DEC_REG(11,  7, 0x1)
 #define vp9_comp_pred_mode	G2_DEC_REG(11,  4, 0x3)
 #define vp9_gref_sign_bias	G2_DEC_REG(11,  2, 0x1)
+#define gref_sign_bias_baikal	G2_DEC_REG(59,  29, 0x1)
 #define vp9_aref_sign_bias	G2_DEC_REG(11,  0, 0x1)
+#define aref_sign_bias_baikal	G2_DEC_REG(59,  28, 0x1)
 
 #define g2_refer_lterm_e	G2_DEC_REG(12, 16, 0xffff)
+#define g2_refer_lterm_e_baikal	G2_DEC_REG(38, 16, 0xffff)
 #define g2_min_cb_size		G2_DEC_REG(12, 13, 0x7)
 #define g2_max_cb_size		G2_DEC_REG(12, 10, 0x7)
 #define g2_min_pcm_size		G2_DEC_REG(12, 7,  0x7)
@@ -291,14 +303,25 @@
 #define vp9_filt_ref_adj_2	G2_DEC_REG(46,  8, 0x7f)
 #define vp9_filt_ref_adj_3	G2_DEC_REG(46,  0, 0x7f)
 
+#define baikal_filt_ref_adj_0	G2_DEC_REG(59, 21, 0x7f)
+#define baikal_filt_ref_adj_1	G2_DEC_REG(59, 14, 0x7f)
+#define baikal_filt_ref_adj_2	G2_DEC_REG(59,  7, 0x7f)
+#define baikal_filt_ref_adj_3	G2_DEC_REG(59,  0, 0x7f)
+
 #define vp9_filt_mb_adj_0	G2_DEC_REG(47, 24, 0x7f)
 #define vp9_filt_mb_adj_1	G2_DEC_REG(47, 16, 0x7f)
 #define vp9_filt_mb_adj_2	G2_DEC_REG(47,  8, 0x7f)
 #define vp9_filt_mb_adj_3	G2_DEC_REG(47,  0, 0x7f)
 
+#define baikal_filt_mb_adj_0	G2_DEC_REG(30, 21, 0x7f)
+#define baikal_filt_mb_adj_1	G2_DEC_REG(30, 14, 0x7f)
+#define baikal_filt_mb_adj_2	G2_DEC_REG(30,  7, 0x7f)
+#define baikal_filt_mb_adj_3	G2_DEC_REG(30,  0, 0x7f)
+
 #define g2_apf_threshold	G2_DEC_REG(55, 0, 0xffff)
 
 #define g2_clk_gate_e		G2_DEC_REG(58, 16, 0x1)
+#define g2_clk_gate_e_baikal	G2_DEC_REG(2, 10, 0x1)
 #define g2_double_buffer_e	G2_DEC_REG(58, 15, 0x1)
 #define g2_buswidth		G2_DEC_REG(58, 8,  0x7)
 #define g2_max_burst		G2_DEC_REG(58, 0,  0xff)
@@ -338,5 +361,18 @@
 
 #define g2_strm_buffer_len	G2_DEC_REG(258, 0, 0xffffffff)
 #define g2_strm_start_offset	G2_DEC_REG(259, 0, 0xffffffff)
+
+#define baikal_pp_out_e		G2_DEC_REG(353, 0, 0x1)
+#define baikal_pp0_out_swap	G2_DEC_REG(384, 28, 0xf)
+#define baikal_pp0_out_format	G2_DEC_REG(384, 18, 0x1f)
+
+#define BAIKAL_PP0_OUT_LUMA_ADDR	(G2_SWREG(386))
+#define BAIKAL_PP0_OUT_CHROMA_ADDR	(G2_SWREG(388))
+
+#define baikal_pp0_in_width	G2_DEC_REG(393, 16, 0xffff)
+#define baikal_pp0_in_height	G2_DEC_REG(393, 0, 0xffff)
+
+#define baikal_pp0_out_width	G2_DEC_REG(395, 16, 0xffff)
+#define baikal_pp0_out_height	G2_DEC_REG(395, 0, 0xffff)
 
 #endif

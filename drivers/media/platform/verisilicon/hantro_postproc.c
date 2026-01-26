@@ -13,6 +13,7 @@
 #include "hantro_g1_regs.h"
 #include "hantro_g2_regs.h"
 #include "hantro_v4l2.h"
+#include "baikal_vpu_regs.h"
 
 #define HANTRO_PP_REG_WRITE(vpu, reg_name, val) \
 { \
@@ -127,15 +128,28 @@ static void hantro_postproc_g2_enable(struct hantro_ctx *ctx)
 	chroma_offset = ctx->dst_fmt.plane_fmt[0].bytesperline *
 			ctx->dst_fmt.height;
 
-	if (down_scale) {
-		hantro_reg_write(vpu, &g2_down_scale_e, 1);
-		hantro_reg_write(vpu, &g2_down_scale_y, down_scale >> 2);
-		hantro_reg_write(vpu, &g2_down_scale_x, down_scale >> 2);
-		hantro_write_addr(vpu, G2_DS_DST, dst_dma);
-		hantro_write_addr(vpu, G2_DS_DST_CHR, dst_dma + (chroma_offset >> down_scale));
+	if (ctx->dev->variant->baikal_regs) {
+		hantro_reg_write(vpu, &baikal_pp0_in_width, ctx->src_fmt.width >> 1);
+		hantro_reg_write(vpu, &baikal_pp0_in_height, ctx->src_fmt.height >> 1);
+		hantro_reg_write(vpu, &baikal_pp0_out_width, ctx->dst_fmt.width);
+		hantro_reg_write(vpu, &baikal_pp0_out_height, ctx->dst_fmt.height);
+		vdpu_write(vpu, ctx->dst_fmt.plane_fmt[0].bytesperline |
+				(ctx->dst_fmt.plane_fmt[0].bytesperline << 16), BAIKAL_PP_OUT_STRIDE);
+		hantro_write_addr(vpu, BAIKAL_PP0_OUT_LUMA_ADDR, dst_dma);
+		hantro_write_addr(vpu, BAIKAL_PP0_OUT_CHROMA_ADDR, dst_dma + chroma_offset);
+		if (down_scale)
+			vdpu_write(vpu, (1 << 30) | (1 << 28), 0x634);
 	} else {
-		hantro_write_addr(vpu, G2_RS_OUT_LUMA_ADDR, dst_dma);
-		hantro_write_addr(vpu, G2_RS_OUT_CHROMA_ADDR, dst_dma + chroma_offset);
+		if (down_scale) {
+			hantro_reg_write(vpu, &g2_down_scale_e, 1);
+			hantro_reg_write(vpu, &g2_down_scale_y, down_scale >> 2);
+			hantro_reg_write(vpu, &g2_down_scale_x, down_scale >> 2);
+			hantro_write_addr(vpu, G2_DS_DST, dst_dma);
+			hantro_write_addr(vpu, G2_DS_DST_CHR, dst_dma + (chroma_offset >> down_scale));
+		} else {
+			hantro_write_addr(vpu, G2_RS_OUT_LUMA_ADDR, dst_dma);
+			hantro_write_addr(vpu, G2_RS_OUT_CHROMA_ADDR, dst_dma + chroma_offset);
+		}
 	}
 
 	out_depth = hantro_get_format_depth(ctx->dst_fmt.pixelformat);
@@ -147,11 +161,19 @@ static void hantro_postproc_g2_enable(struct hantro_ctx *ctx)
 
 		hantro_reg_write(ctx->dev, &g2_rs_out_bit_depth, out_depth);
 		hantro_reg_write(ctx->dev, &g2_pp_pix_shift, pp_shift);
+	} else if (ctx->dev->variant->baikal_regs) {
+		hantro_reg_write(vpu, &baikal_pp0_out_format, out_depth > 8 ? 1 : 0);
 	} else {
 		hantro_reg_write(vpu, &g2_output_8_bits, out_depth > 8 ? 0 : 1);
 		hantro_reg_write(vpu, &g2_output_format, out_depth > 8 ? 1 : 0);
 	}
-	hantro_reg_write(vpu, &g2_out_rs_e, 1);
+
+	if (ctx->dev->variant->baikal_regs) {
+		hantro_reg_write(vpu, &baikal_pp0_out_swap, 0);
+		hantro_reg_write(vpu, &baikal_pp_out_e, 1);
+	} else {
+		hantro_reg_write(vpu, &g2_out_rs_e, 1);
+	}
 }
 
 static int hantro_postproc_g2_enum_framesizes(struct hantro_ctx *ctx,
@@ -308,7 +330,10 @@ static void hantro_postproc_g2_disable(struct hantro_ctx *ctx)
 {
 	struct hantro_dev *vpu = ctx->dev;
 
-	hantro_reg_write(vpu, &g2_out_rs_e, 0);
+	if (ctx->dev->variant->baikal_regs)
+		hantro_reg_write(vpu, &baikal_pp_out_e, 0);
+	else
+		hantro_reg_write(vpu, &g2_out_rs_e, 0);
 }
 
 void hantro_postproc_disable(struct hantro_ctx *ctx)
