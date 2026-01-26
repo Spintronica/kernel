@@ -561,9 +561,10 @@ static void baikal_dp_stop(struct baikal_dp *dp)
 
 static int baikal_dp_txconnected(struct baikal_dp *dp)
 {
-	/* TODO implement */
-
-	return true;
+	if (baikal_dp_read(dp->dp_base, BAIKAL_DP_HPD_INPUT_STATE) &
+	    BAIKAL_DP_HPD_INPUT_STATE_HPD)
+		return true;
+	return false;
 }
 
 static enum drm_connector_status
