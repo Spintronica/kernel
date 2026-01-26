@@ -755,7 +755,6 @@
 					  "msi4", "msi5", "msi6", "msi7",
 					  "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x0 0x00000000 0x0 0x4ff00000 0x0 0x100000>,
@@ -864,7 +863,6 @@
 					  "msi4", "msi5", "msi6", "msi7",
 					  "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x0 0x00100000 0x0 0x5ff00000 0x0 0x100000>,
@@ -973,7 +971,6 @@
 					  "msi4", "msi5", "msi6", "msi7",
 					  "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x0 0x00200000 0x0 0x7ff00000 0x0 0x100000>,

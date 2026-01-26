@@ -2100,7 +2100,6 @@
 			interrupt-names = "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7",
 					  "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x00 0x00000000 0x47 0xe0000000 0x0 0x100000>,
@@ -2146,7 +2145,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x00 0x00100000 0x4f 0xe0000000 0x0 0x100000>,
@@ -2170,7 +2168,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x00 0x00200000 0x57 0xe0000000 0x0 0x100000>,
@@ -2194,7 +2191,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x00 0x00300000 0x5f 0xe0000000 0x0 0x100000>,
@@ -2228,7 +2224,6 @@
 			interrupt-names = "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7",
 					  "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x00 0x00400000 0x67 0xe0000000 0x0 0x100000>,
@@ -2274,7 +2269,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x00 0x00500000 0x6f 0xe0000000 0x0 0x100000>,
@@ -2298,7 +2292,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x00 0x00600000 0x77 0xe0000000 0x0 0x100000>,
@@ -2322,7 +2315,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x81000000 0x00 0x00700000 0x7f 0xe0000000 0x0 0x100000>,
