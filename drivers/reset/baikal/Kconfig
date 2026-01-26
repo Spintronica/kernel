@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config RESET_BL1000
+	tristate "Baikal BE-L1000 Reset Driver"
+	help
+	  This enables the reset driver for Baikal Electronics BE-L1000 SoCs.
+

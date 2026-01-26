@@ -328,8 +328,9 @@ static int hantro_try_fmt(const struct hantro_ctx *ctx,
 
 	pix_mp->field = V4L2_FIELD_NONE;
 
-	v4l2_apply_frmsize_constraints(&pix_mp->width, &pix_mp->height,
-				       &vpu_fmt->frmsize);
+	if (!capture || !ctx->is_encoder)
+		v4l2_apply_frmsize_constraints(&pix_mp->width, &pix_mp->height,
+					       &vpu_fmt->frmsize);
 
 	if (!coded) {
 		/* Fill remaining fields */
@@ -597,8 +598,12 @@ static int hantro_set_fmt_cap(struct hantro_ctx *ctx,
 	 * Note that hantro_reset_raw_fmt() also propagates size
 	 * changes to the raw format.
 	 */
-	if (ctx->is_encoder)
+	if (ctx->is_encoder) {
 		hantro_reset_raw_fmt(ctx, HANTRO_DEFAULT_BIT_DEPTH, HANTRO_AUTO_POSTPROC);
+	} else {
+		ctx->bit_depth = hantro_get_format_depth(pix_mp->pixelformat);
+		ctx->need_postproc = ctx->vpu_dst_fmt->postprocessed;
+	}
 
 	/* Colorimetry information are always propagated. */
 	ctx->src_fmt.colorspace = pix_mp->colorspace;

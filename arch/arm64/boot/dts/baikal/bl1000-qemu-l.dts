@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device tree source for Baikal Electronics QEMU-L virtual platform
+ * Copyright (C) 2022-2025 Baikal Electronics, JSC
+ */
+
+/dts-v1/;
+
+#include "bl1000.dtsi"
+
+/ {
+	model = "Baikal Electronics QEMU-L";
+	compatible = "baikal,qemu-l", "baikal,bl1000";
+
+	chosen { };
+
+	/*
+	 * Device is necessary for UEFI to boot on QEMU,
+	 * need to replace it with something later.
+	 */
+	flash@0 {
+		compatible = "cfi-flash";
+		reg = <0x0 0x4000000 0x0 0x4000000>;
+		bank-width = <0x4>;
+	};
+};
+
+&hsp_mali {
+	status = "okay";
+};
+
+&sc_emmc1 {
+	status = "okay";
+	pinctrl = <&sc_emmc_bit0_mode1>;
+	bus-width = <8>;
+	max-frequency = <25000000>;
+	no-sd;
+	no-sdio;
+	non-removable;
+	sdhci-caps-mask = <0x00000002 0x00680000>;
+};
+
+&sc_emmc_pinctrl {
+	status = "okay";
+};
+
+&sc_lsp_pinctrl0 {
+	status = "okay";
+};
+
+&sc_lsp_pinctrl1 {
+	status = "okay";
+};
+
+&sc_lsp_pinctrl2 {
+	status = "okay";
+};
+
+&sc_uart2 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin12_uart2_rxd>,
+		  <&sc_lsp_pin13_uart2_txd>;
+};

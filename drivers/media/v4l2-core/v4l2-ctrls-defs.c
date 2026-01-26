@@ -1237,6 +1237,11 @@ const char *v4l2_ctrl_get_name(u32 id)
 	case V4L2_CID_STATELESS_AV1_TILE_GROUP_ENTRY:		return "AV1 Tile Group Entry";
 	case V4L2_CID_STATELESS_AV1_FRAME:			return "AV1 Frame Parameters";
 	case V4L2_CID_STATELESS_AV1_FILM_GRAIN:			return "AV1 Film Grain";
+	case V4L2_CID_STATELESS_VP8_ENCODE_PARAMS:		return "VP8 Encode Parameters";
+	case V4L2_CID_STATELESS_VP8_ENCODE_QP:			return "VP8 Encode QP";
+
+	case V4L2_CID_STATELESS_H264_ENCODE_PARAMS:             return "H264 Encode Parameters";
+	case V4L2_CID_STATELESS_H264_ENCODE_RC:                 return "H264 Encode Rate-Control";
 
 	/* Colorimetry controls */
 	/* Keep the order of the 'case's the same as in v4l2-controls.h! */
@@ -1597,6 +1602,9 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 	case V4L2_CID_STATELESS_AV1_FILM_GRAIN:
 		*type = V4L2_CTRL_TYPE_AV1_FILM_GRAIN;
 		break;
+	case V4L2_CID_STATELESS_VP8_ENCODE_PARAMS:
+		*type = V4L2_CTRL_TYPE_VP8_ENCODE_PARAMS;
+		break;
 	case V4L2_CID_UNIT_CELL_SIZE:
 		*type = V4L2_CTRL_TYPE_AREA;
 		*flags |= V4L2_CTRL_FLAG_READ_ONLY;
@@ -1606,6 +1614,12 @@ void v4l2_ctrl_fill(u32 id, const char **name, enum v4l2_ctrl_type *type,
 		break;
 	case V4L2_CID_COLORIMETRY_HDR10_MASTERING_DISPLAY:
 		*type = V4L2_CTRL_TYPE_HDR10_MASTERING_DISPLAY;
+		break;
+	case V4L2_CID_STATELESS_H264_ENCODE_PARAMS:
+		*type = V4L2_CTRL_TYPE_H264_ENCODE_PARAMS;
+		break;
+	case V4L2_CID_STATELESS_H264_ENCODE_RC:
+		*type = V4L2_CTRL_TYPE_H264_ENCODE_RC;
 		break;
 	default:
 		*type = V4L2_CTRL_TYPE_INTEGER;

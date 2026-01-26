@@ -40,6 +40,7 @@ enum panfrost_drv_comp_bits {
 enum panfrost_gpu_pm {
 	GPU_PM_CLK_DIS,
 	GPU_PM_VREG_OFF,
+	GPU_PM_PWROFF_DIS,
 };
 
 struct panfrost_features {

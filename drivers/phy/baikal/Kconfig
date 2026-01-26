@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config USB_PHY_BAIKAL
+	tristate "Baikal USB PHY driver"
+	depends on USB_SUPPORT
+	select GENERIC_PHY
+	select USB_PHY
+	help
+	  Enable this to support the USB PHY on Baikal SoCs.
+	  This driver controls both the USB2 PHY and the USB3 PHY.
+
+config DP_PHY_BAIKAL
+	tristate "Baikal DisplayPort PHY driver"
+	depends on OF
+	depends on HAS_IOMEM
+	depends on COMMON_CLK
+	select GENERIC_PHY
+	help
+	  Support for Baikal DP PHY.

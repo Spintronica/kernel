@@ -6,6 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/export.h>
+#include <linux/property.h>
 #include <sound/core.h>
 #include <sound/hdaudio.h>
 #include <sound/hda_register.h>
@@ -76,7 +77,7 @@ void snd_hdac_bus_init_cmd_io(struct hdac_bus *bus)
 	/* set the rirb size to 256 entries (ULI requires explicitly) */
 	snd_hdac_chip_writeb(bus, RIRBSIZE, 0x02);
 	/* reset the rirb hw write pointer */
-	snd_hdac_chip_writew(bus, RIRBWP, AZX_RIRBWP_RST);
+	//snd_hdac_chip_writew(bus, RIRBWP, AZX_RIRBWP_RST);
 	/* set N=1, get RIRB response interrupt for new entry */
 	snd_hdac_chip_writew(bus, RINTCNT, 1);
 	/* enable rirb dma and response irq */
@@ -229,6 +230,9 @@ static int snd_hdac_bus_send_cmd_corb(struct hdac_bus *bus, unsigned int val)
 	unsigned int wp, rp;
 
 	spin_lock_irq(&bus->reg_lock);
+
+	if (device_property_read_bool(bus->dev, "increment-codec-address"))
+		val = val + 0x10000000;
 
 	bus->last_cmd[azx_command_addr(val)] = val;
 

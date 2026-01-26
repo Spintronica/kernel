@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config CLK_BL1000
+	bool "Baikal BE-L1000 SoC clock driver"
+	depends on ARCH_BAIKAL || COMPILE_TEST
+	default ARCH_BAIKAL
+	help
+	  Enable Baikal BE-L1000 CMU clock driver.
+
+config CLK_BM1000
+	bool "Baikal BE-M1000 SoC clock driver"
+	depends on ARCH_BAIKAL || COMPILE_TEST
+	default ARCH_BAIKAL
+	help
+	  Enable Baikal BE-M1000 CMU clock driver.
+
+config CLK_BS1000
+	bool "Baikal BE-S1000 SoC clock driver"
+	depends on ARCH_BAIKAL || COMPILE_TEST
+	default ARCH_BAIKAL
+	help
+	  Enable Baikal BE-S1000 CMU clock driver.

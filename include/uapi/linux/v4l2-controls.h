@@ -1694,6 +1694,91 @@ struct v4l2_ctrl_h264_decode_params {
 	__u32 flags;
 };
 
+#define V4L2_H264_NAL_CODED_SLICE_NON_IDR_PIC	1
+#define V4L2_H264_NAL_CODED_SLICE_IDR_PIC	5
+
+#define V4L2_CID_STATELESS_H264_ENCODE_PARAMS  (V4L2_CID_CODEC_STATELESS_BASE + 8)
+
+/**
+ * struct v4l2_ctrl_h264_encode_params
+ * @slice_type: selects slice type. Set to one of V4L2_H264_SLICE_TYPE_{}
+ * @pic_parameter_set_id: identifies the picture parameter set that is referred to
+ * in the slice header. The value shall be in the range of 0 to 255, inclusive.
+ * @frame_num: an identifier for pictures.
+ * @idr_pic_id: identifies an IDR picture.
+ * @cabac_init_idc: index for determining the initialization table used in the
+ * initialization process for context variables. The value of cabac_init_idc
+ * shall be in the range of 0 to 2, inclusive.
+ * @disable_deblocking_filter_idc: specifies whether the operation of the
+ * deblocking filter shall be disabled across some block edges of the slice and
+ * specifies for which edges the filtering is disabled.
+ * @slice_alpha_c0_offset_div2: offset used in accessing the alpha and tC0
+ * deblocking filter tables for filtering operations controlled by the macroblocks
+ * within the slice.
+ * @slice_beta_offset_div2: offset used in accessing the beta deblocking filter
+ * table for filtering operations controlled by the macroblocks within the slice.
+ * @slice_size_mb_rows: number of macroblock rows in a slice.
+ * @pic_init_qp_minus26: initial value minus 26 of luma qp for each slice.
+ * @chroma_qp_index_offset: offset that shall be added to qp luma for addressing the
+ * table of qp chroma values for the Cb chroma component.
+ * @flags: combination of V4L2_H264_SLICE_FLAG_{} flags.
+ */
+struct v4l2_ctrl_h264_encode_params {
+	/* Slice parameters */
+
+	__u8 slice_type;
+	__u8 pic_parameter_set_id;
+	__u16 frame_num;
+	__u16 idr_pic_id;
+	__u8 cabac_init_idc;
+	__u8 disable_deblocking_filter_idc;
+	__s8 slice_alpha_c0_offset_div2;
+	__s8 slice_beta_offset_div2;
+
+	__s32 slice_size_mb_rows;
+
+	/* PPS parameters */
+
+	__s8 pic_init_qp_minus26;
+	__s8 chroma_qp_index_offset;
+
+	__u32 flags; /* V4L2_H264_ENCODE_FLAG_ */
+
+	/* Nal parameters */
+	__u8 nal_reference_idc; // 2 bit
+	__u8 nalu_type; // 5 bit
+
+	/* Reference */
+
+	__u64 reference_ts;
+};
+
+#define V4L2_H264_ENCODE_FLAG_ENTROPY_CABAC	       0x01
+#define V4L2_H264_ENCODE_FLAG_TRANSFORM_8X8_MODE       0x02
+#define V4L2_H264_ENCODE_FLAG_CONSTRAINED_INTRA_PRED   0x04
+#define V4L2_H264_ENCODE_FLAG_MARK_LONGTERM            0x08
+
+#define V4L2_CID_STATELESS_H264_ENCODE_RC      (V4L2_CID_CODEC_STATELESS_BASE + 9)
+
+/**
+ * struct v4l2_ctrl_h264_encode_rc
+ *
+ * @qp: quantization parameter for the currently encoded slice
+ *
+ * TODO: other fields likely not needed
+ */
+struct v4l2_ctrl_h264_encode_rc {
+	__u32 qp;
+	__u32 qp_min;
+	__u32 qp_max;
+	__s32 mad_qp_delta;
+	__u32 mad_threshold;
+
+	__u32 cp_distance_mbs;
+	__u32 cp_target[10];
+	__s32 cp_target_error[6];
+	__s32 cp_qp_delta[7];
+};
 
 /* Stateless FWHT control, used by the vicodec driver */
 
@@ -3492,6 +3577,97 @@ struct v4l2_ctrl_av1_film_grain {
 	__u16 cr_offset;
 	__u8 reserved[4];
 };
+
+#define V4L2_CID_STATELESS_VP8_ENCODE_PARAMS	(V4L2_CID_CODEC_STATELESS_BASE + 601)
+
+#define V4L2_VP8_FRAME_FLAG_SHOWFRAME			0x1
+#define V4L2_VP8_FRAME_FLAG_GOLDEN_REFRESH		0x2
+#define V4L2_VP8_FRAME_FLAG_ALTREF_REFRESH		0x4
+#define V4L2_VP8_FRAME_FLAG_SEGMENT_ENABLED		0x8
+#define V4L2_VP8_FRAME_FLAG_LOOP_FILTER_ADJ_ENABLED	0x10
+#define V4L2_VP8_FRAME_FLAG_REFRESH_ENTROPY_PROBS	0x20
+
+#define V4L2_VP8_FRAME_TYPE_KEYFRAME	0
+#define V4L2_VP8_FRAME_TYPE_INTER	1
+
+#define V4L2_VP8_FRAME_COLOR_SPACE_YUV		0
+#define V4L2_VP8_FRAME_COLOR_SPACE_RESERVED	1
+
+#define V4L2_VP8_FRAME_CLAMPING_REQUIRED	0
+#define V4L2_VP8_FRAME_CLAMPING_NO		1
+
+#define V4L2_VP8_FRAME_FILTER_TYPE_NORMAL	0
+#define V4L2_VP8_FRAME_FILTER_TYPE_SIMPLE	1
+
+#define V4L2_VP8_FRAME_NBR_DCT_PARTITIONS_1	0
+#define V4L2_VP8_FRAME_NBR_DCT_PARTITIONS_2	1
+#define V4L2_VP8_FRAME_NBR_DCT_PARTITIONS_4	2
+#define V4L2_VP8_FRAME_NBR_DCT_PARTITIONS_8	3
+
+#define V4L2_VP8_FRAME_GOLDEN_KEEP		0
+#define V4L2_VP8_FRAME_GOLDEN_LASTFRAME		1
+#define V4L2_VP8_FRAME_GOLDEN_ALTREF		2
+
+#define V4L2_VP8_FRAME_ALTREF_KEEP		0
+#define V4L2_VP8_FRAME_ALTREF_LASTFRAME		1
+#define V4L2_VP8_FRAME_ALTREF_GOLDEN		2
+
+#define V4L2_VP8_FRAME_REF_LAST		0
+#define V4L2_VP8_FRAME_REF_GOLDEN	1
+#define V4L2_VP8_FRAME_REF_ALT		2
+
+/**
+ * struct v4l2_ctrl_vp8_encode_params - VP8 encode parameters
+ * @flags: combination of V4L2_VP8_FRAME_FLAG_{} flags.
+ * @frame_type: specifies the frame type (key or inter).
+ *		Set to one of V4L2_VP8_FRAME_TYPE_{}.
+ * @color_space: defines the YUV color space of the sequence.
+ *		 V4L2_VP8_FRAME_TYPE_INTER frames shall set this field to zero.
+ *		 Set to one of V4L2_VP8_FRAME_COLOR_SPACE_{}.
+ * @clamping_type: defines pixel value clamping type.
+ *		   V4L2_VP8_FRAME_TYPE_INTER frames shall set this field to zero.
+ *		   Set to one of V4L2_VP8_FRAME_CLAMPING_{}.
+ * @loop_filter_type: selects the type of loop filter applied.
+ *		      Set to one of V4L2_VP8_FRAME_FILTER_TYPE_{}.
+ * @loop_filter_level: sets the strength of the applied loop filter.
+ *		       Set to a value from the rage 0..63.
+ * @sharpness_level: sets the sharpness of the applied loop filter.
+ *		     Set to a value from the range 0..7.
+ * @log2_nbr_of_dct_partitions: determines the number of separate partitions
+ *				containing the DCT coefficients of macroblocks.
+ *				Set to one of V4L2_VP8_FRAME_NBR_DCT_PARTITIONS_{}.
+ * @prob_intra: indicates the probability of an intra macroblock.
+ *		Set to a value from the range 0..255.
+ * @prob_last: indicates the probability that the last reference frame is used for inter-prediction.
+ *	       Set to a value from the range 0..255.
+ * @prob_gf: indicates the probability that the golden reference frame is used for inter-prediction.
+ *	     Set to a value from the range 0..255.
+ * @copy_buffer_to_golden: specifies the golden frame refresh strategy.
+ *			   Set to one of V4L2_VP8_FRAME_FLAG_GOLDEN_{}.
+ * @copy_buffer_to_alternate: specifies the atlref frame refresh strategy.
+ *			      Set to one of V4L2_VP8_FRAME_FLAG_ALTREF_{}.
+ * @reference_type: specifies what kind of reference to use for current inter frame.
+ *		    V4L2_VP8_FRAME_TYPE_KEYFRAME shall set this field to zero.
+ *		    Set to one of V4L2_VP8_FRAME_REF_{}.
+ */
+struct v4l2_ctrl_vp8_encode_params {
+	__u32 flags;
+	__u8 frame_type;
+	__u8 color_space;
+	__u8 clamping_type;
+	__u8 loop_filter_type;
+	__u8 loop_filter_level;
+	__u8 sharpness_level;
+	__u8 log2_nbr_of_dct_partitions;
+	__u8 prob_intra;
+	__u8 prob_last;
+	__u8 prob_gf;
+	__u8 copy_buffer_to_golden;
+	__u8 copy_buffer_to_alternate;
+	__u8 reference_type;
+};
+
+#define V4L2_CID_STATELESS_VP8_ENCODE_QP	(V4L2_CID_CODEC_STATELESS_BASE + 602)
 
 /* MPEG-compression definitions kept for backwards compatibility */
 #ifndef __KERNEL__
