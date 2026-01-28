@@ -1,0 +1,282 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device tree source for Elpitech ET104 v1.0 board
+ */
+
+/dts-v1/;
+
+#include "bl1000.dtsi"
+
+/ {
+	model = "Elpitech ET104";
+	compatible = "baikal,dbl", "baikal,bl1000";
+
+	aliases {
+		ethernet0 = &sc_gmac;
+		fru = &fru;
+	};
+
+	chosen { };
+
+};
+
+&ehsp_pcie0_p0 {
+	status = "okay";
+	num-lanes = <4>;
+	max-link-speed = <3>;
+	reset-gpios = <&porte 1 GPIO_ACTIVE_LOW>;
+};
+
+&ehsp_pcie1_p0 {
+	status = "okay";
+	num-lanes = <2>;
+	max-link-speed = <3>;
+	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
+};
+
+&ehsp_pcie1_p1 {
+//	status = "okay";
+	num-lanes = <1>;
+	max-link-speed = <3>;
+	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
+};
+
+&ehsp_pcie1_p2 {
+	status = "okay";
+	num-lanes = <1>;
+	max-link-speed = <3>;
+	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
+};
+
+&ehsp_pcie1_p3 {
+//	status = "okay";
+	num-lanes = <1>;
+	max-link-speed = <3>;
+	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
+};
+
+&hsp_edp_phy {
+	status = "okay";
+};
+
+&hsp_lsp_pinctrl0 {
+	status = "okay";
+};
+
+&hsp_lsp_pinctrl1 {
+	status = "okay";
+};
+
+&hsp_lsp_pinctrl2 {
+	status = "okay";
+};
+
+&hsp_mali {
+	status = "okay";
+};
+
+&hsp_vdec {
+	status = "okay";
+};
+
+&hsp_vdu {
+	status = "okay";
+	dp-lanes = <4>;
+	backlight {
+		min-brightness-level = <10>;
+		default-brightness-level = <60>;
+		brightness-level-step = <2>;
+		pwm-frequency = <20000>;
+	};
+};
+
+&hsp_venc {
+	status = "okay";
+};
+
+&mdio {
+	interrupt-parent = <&porte>;
+	interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
+
+	ethphy: ethernet-phy@1 {
+		compatible = "ethernet-phy-ieee802.3-c22";
+		reg = <0x1>;
+	};
+};
+
+
+&sc_gmac {
+	status = "okay";
+	pinctrl = <&sc_gmac_sdio_bit0_mode1>;//,//; //,
+//		  <&hsp_lsp_pin12_gpio32>;
+//vvv		  <&sc_lsp_pin1_gpio32>;
+
+	phy-handle = <&ethphy>;
+	phy-mode = "rgmii-rxid";
+
+	snps,reset-gpios = <&porte 12 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <10 10200 60000>;
+};
+
+&sc_gmac_sdio_pinctrl {
+	status = "okay";
+};
+
+&sc_gpio32 {
+	status = "okay";
+};
+
+&hsp_gpio32 {
+	status = "okay";
+};
+
+&sc_gpio30 {
+	status = "okay";
+};
+
+&hsp_lsp_pinctrl0 {
+	status = "okay";
+};
+
+&sc_lsp_pinctrl0 {
+	status = "okay";
+};
+
+&sc_lsp_pinctrl1 {
+	status = "okay";
+};
+
+&sc_lsp_pinctrl2 {
+	status = "okay";
+};
+
+&sc_uart2 { /* Connected to USB-UART bridge (CP2105) */
+	status = "okay";
+	pinctrl = <&sc_lsp_pin12_uart2_rxd>,
+		  <&sc_lsp_pin13_uart2_txd>;
+};
+
+&sc_pvt {
+	status = "okay";
+};
+
+&ddr_pvt {
+	status = "okay";
+};
+
+&hsp_pvt {
+	status = "okay";
+};
+
+&ehsp_pvt {
+	status = "okay";
+};
+
+&ca710_pvt {
+	status = "okay";
+};
+
+/****************************************************/
+/* Expansion boards for daughterboard slot1 (DTBs1) */
+/****************************************************/
+
+&sc_hda {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin14_hda_rst>,
+		  <&sc_lsp_pin15_hda_sync>,
+		  <&sc_lsp_pin16_hda_bclk>,
+		  <&sc_lsp_pin17_hda_sdo0>,
+		  <&sc_lsp_pin18_hda_sdi0>;
+};
+
+&ehsp_dp_phy {
+	status = "okay";
+};
+
+&ehsp_vdu {
+	status = "okay";
+	dp-lanes = <4>;
+};
+
+&hsp_usb1_l0 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+};
+
+&hsp_usb1_l1 {
+//vvv	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "high-speed";
+};
+
+&sc_i2c2 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin4_i2c2_scl>,
+		  <&sc_lsp_pin5_i2c2_sda>;
+
+	fru: eeprom@50 {
+		compatible = "atmel,24c256";
+		reg = <0x50>;
+	};
+
+	rtc: rtc@51 {
+		compatible = "haoyu,hym8563";
+		reg = <0x51>;
+	};
+};
+
+&hsp_usb0_l0 { /* Connected to USB A0 receptacle */
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&hsp_usb0_phy10g_phy0>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb0_l1 { /* Connected to USB A1 receptacle */
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&hsp_usb0_phy10g_phy0>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb0_phy10g {
+	status = "okay";
+};
+
+&hsp_usb0_phy10g_phy0 {
+	status = "okay";
+	cdns,num-lanes = <2>;
+};
+
+&sc_i2c3 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin6_i2c3_scl>,
+		  <&sc_lsp_pin7_i2c3_sda>;
+
+	edid: eeprom@50 {
+		compatible = "atmel,24c32";
+		pagesize = <32>;
+		reg = <0x50>;
+	};
+
+	eeprom@54 {
+		compatible = "st,m24256";
+		reg = <0x54>;
+	};
+};
+
+&sc_uart0 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin8_uart0_rxd>,
+		  <&sc_lsp_pin9_uart0_txd>;
+};
+
+&sc_uart1 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
+		  <&sc_lsp_pin11_uart1_txd>;
+};
+
