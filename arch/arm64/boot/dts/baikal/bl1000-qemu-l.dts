@@ -31,7 +31,6 @@
 
 &sc_emmc1 {
 	status = "okay";
-	pinctrl = <&sc_emmc_bit0_mode1>;
 	bus-width = <8>;
 	max-frequency = <25000000>;
 	no-sd;
