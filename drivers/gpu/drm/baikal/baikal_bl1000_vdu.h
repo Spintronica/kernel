@@ -28,6 +28,15 @@
 #define INT_VBP_START			(1 << 2)
 #define INT_VA_START			(1 << 3)
 #define INT_VFP_START			(1 << 4)
+#define INT_WINDOW_EMPTY_0		(1 << 5)
+#define INT_WINDOW_EMPTY_1		(1 << 6)
+#define INT_WINDOW_EMPTY_2		(1 << 7)
+#define INT_CURSOR_EMPTY		(1 << 8)
+#define INT_ANY_ERROR			(INT_AXI_RESP | \
+					INT_WINDOW_EMPTY_0 | \
+					INT_WINDOW_EMPTY_1 | \
+					INT_WINDOW_EMPTY_2 | \
+					INT_CURSOR_EMPTY)
 #define PWM_CTRL_0			0x080
 #define PWM_CTRL_1			0x084
 
@@ -86,6 +95,23 @@
 #define pipe_window_reg(start, end) \
 		(((start) << 16) | \
 		(end))
+
+#define CPUECTRL2_TXREQ_MIN	(1)	/* 0(1/4-default), 1(1/8), 2(1/16), 3(1/32) */
+#define CPUECTRL2_PF_MODE	(3)	/* 0(0,0), 1(0,1), 2(0,2), 3(0,3-default), 4(1,1) .. 9(3,3) */
+#define CPUECTRL2_F_WINDOW	(3)	/* 0(256-default), 1(64), 2(128), 3(512) */
+#define CPUECTRL2_F_TRH		(1)	/* 0(1/16-default), 1(1/32), 2(1/8), 3(1/4) */
+#define CPUECTRL2_TXREQ_DEC	(0)	/* 0(4-default), 1(8), 2(16), 3(2) */
+#define CPUECTRL2_TXREQ_INC	(3)	/* 0(4-default), 1(8), 2(16), 3(2) */
+#define CPUECTRL2_CBUSY_ON	(1)	/* 0(off-default), 1(on) */
+#define CPUECTRL2_TXREQ_MAX	(0)	/* 0(4/4-default), 1(3/4), 2(2/4), 3(1/4) */
+#define CPUECTRL2_VALUE		((CPUECTRL2_TXREQ_MIN << 15) | \
+				 (CPUECTRL2_PF_MODE << 11) | \
+				 (CPUECTRL2_F_WINDOW << 9) | \
+				 (CPUECTRL2_F_TRH << 7) | \
+				 (CPUECTRL2_TXREQ_DEC << 5) | \
+				 (CPUECTRL2_TXREQ_INC << 3) | \
+				 (CPUECTRL2_CBUSY_ON << 2) | \
+				  CPUECTRL2_TXREQ_MAX);
 
 struct baikal_vdu_drm_format {
 	u32 reg;

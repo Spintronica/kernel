@@ -341,6 +341,9 @@ int baikal_bl1000_vdu_debugfs_regs(struct seq_file *m, void *unused)
 			   priv->ops->reg_defs[i].name, priv->ops->reg_defs[i].reg,
 			   readl(priv->regs + priv->ops->reg_defs[i].reg));
 	}
+	for (i = 0; i < ARRAY_SIZE(priv->errors); i++) {
+		seq_printf(m, "ERROR[%d]: 0x%08x\n", i, priv->errors[i]);
+	}
 	for (i = 0; i < ARRAY_SIZE(priv->counters); i++) {
 		seq_printf(m, "COUNTER[%d]: 0x%08x\n", i, priv->counters[i]);
 	}

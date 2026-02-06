@@ -56,6 +56,7 @@ struct baikal_vdu_private {
 	char regs_name[VDU_NAME_LEN + 5];
 	spinlock_t lock;
 	u32 counters[20];
+	u32 errors[13];
 	atomic_t vblank_counter;
 	int num_lanes;
 	int data_mapping;

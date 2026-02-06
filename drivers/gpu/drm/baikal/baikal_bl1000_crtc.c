@@ -14,6 +14,7 @@
 #include <drm/drm_vblank.h>
 #include <linux/clk.h>
 
+#include "baikal_bl1000_dp.h"
 #include "baikal_bl1000_drm.h"
 #include "baikal_bl1000_vdu.h"
 
@@ -21,7 +22,7 @@ static int baikal_enable_vblank(struct drm_crtc *crtc)
 {
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
 
-	baikal_vdu_write(priv, INT_MASK, ~INT_VFP_START);
+	baikal_vdu_write(priv, INT_MASK, ~(INT_VFP_START | INT_ANY_ERROR));
 	return 0;
 }
 
@@ -30,7 +31,7 @@ static void baikal_disable_vblank(struct drm_crtc *crtc)
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
 
 	baikal_vdu_write(priv, INT_CTRL, ~0);
-	baikal_vdu_write(priv, INT_MASK, ~0);
+	baikal_vdu_write(priv, INT_MASK, ~INT_ANY_ERROR);
 }
 
 static u32 baikal_get_vblank_counter(struct drm_crtc *crtc)
@@ -43,14 +44,17 @@ static u32 baikal_get_vblank_counter(struct drm_crtc *crtc)
 irqreturn_t baikal_vdu_l1000_irq(int irq, void *data)
 {
 	struct baikal_vdu_private *priv = data;
-	//struct baikal_vdu_crossbar *crossbar;
+	struct baikal_vdu_crossbar *crossbar;
+	struct baikal_dp *dp;
 	irqreturn_t status = IRQ_NONE;
 	u32 raw_stat;
 	u32 irq_stat;
+	u32 reg;
 
 	if (!priv || !priv->drm)
 		return status;
-	//crossbar = drm_to_baikal_vdu_crossbar(priv->drm);
+	crossbar = drm_to_baikal_vdu_crossbar(priv->drm);
+	dp = crossbar->dp;
 
 	//priv->counters[0]++;
 	irq_stat = readl(priv->regs + INT_STAT);
@@ -62,6 +66,42 @@ irqreturn_t baikal_vdu_l1000_irq(int irq, void *data)
 		drm_crtc_handle_vblank(&priv->crtc);
 		status = IRQ_HANDLED;
 	}
+
+	if (irq_stat & INT_ANY_ERROR) {
+		if (raw_stat & INT_AXI_RESP)
+			priv->errors[0]++;
+		if (raw_stat & INT_WINDOW_EMPTY_0)
+			priv->errors[1]++;
+		if (raw_stat & INT_WINDOW_EMPTY_1)
+			priv->errors[2]++;
+		if (raw_stat & INT_WINDOW_EMPTY_2)
+			priv->errors[3]++;
+		if (raw_stat & INT_CURSOR_EMPTY)
+			priv->errors[4]++;
+		status = IRQ_HANDLED;
+	}
+
+	reg = baikal_dp_read(dp->dp_base, BAIKAL_DP_INTERRUPT_STATE);
+	if (reg & BAIKAL_DP_INTERRUPT_STATE_VS0_FIFO_OVERFLOW)
+		priv->errors[5]++;
+	if (reg & BAIKAL_DP_INTERRUPT_STATE_VS0_FIFO_ERROR)
+		priv->errors[6]++;
+	if (reg & BAIKAL_DP_INTERRUPT_STATE_VS1_FIFO_OVERFLOW)
+		priv->errors[7]++;
+	if (reg & BAIKAL_DP_INTERRUPT_STATE_VS1_FIFO_ERROR)
+		priv->errors[8]++;
+
+	reg = baikal_dp_read(dp->dp_base, BAIKAL_DP_SRC0_USER_FIFO_STATUS);
+	if (reg & BAIKAL_DP_SRC0_USER_FIFO_STATUS_ERROR)
+		priv->errors[9]++;
+	if (reg & BAIKAL_DP_SRC0_USER_FIFO_STATUS_OVERFLOW)
+		priv->errors[10]++;
+
+	reg = baikal_dp_read(dp->dp_base, BAIKAL_DP_SRC0_USER_FRAMING_STATUS);
+	if (reg & BAIKAL_DP_SRC0_USER_FRAMING_STATUS_VBI_TIMING_ERROR)
+		priv->errors[11]++;
+	if (reg & BAIKAL_DP_SRC0_USER_FRAMING_STATUS_DATA_UNDERFLOW)
+		priv->errors[12]++;
 
 	//priv->counters[3] |= raw_stat;
 	//priv->counters[4] |= irq_stat;

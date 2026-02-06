@@ -79,7 +79,7 @@ static inline void baikal_dp_write(void __iomem *base, int offset, u32 val)
 	writel(val, base + (offset << BAIKAL_DP_REG_ADDR_OFFSET));
 }
 
-static inline u32 baikal_dp_read(void __iomem *base, int offset)
+inline u32 baikal_dp_read(void __iomem *base, int offset)
 {
 	return readl(base + (offset << BAIKAL_DP_REG_ADDR_OFFSET));
 }

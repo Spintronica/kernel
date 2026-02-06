@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/firmware/baikal/baikal-smc.h>
 #include <linux/of_device.h>
 #include <linux/of_graph.h>
 #include <linux/platform_device.h>
@@ -24,13 +25,23 @@
 #include "baikal_bl1000_drm.h"
 #include "baikal_bl1000_vdu.h"
 
+static void set_cpuectlr2(void *info)
+{
+	u64 val = *((u64 *) info);
+	u32 reg = sys_reg(3, 0, 15, 1, 5);
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(BAIKAL_SMC_SYSREG_WRITE, reg, val, 0, 0, 0, 0, 0, &res);
+}
+
 static int baikal_vdu_l1000_probe(struct platform_device *pdev, struct drm_device *drm, struct baikal_vdu_crossbar *crossbar)
 {
 	struct device *dev = &pdev->dev;
 	struct baikal_vdu_private *dp0 = &crossbar->vdu[0];
 	struct baikal_vdu_private *dp1 = &crossbar->vdu[1];
+	uint32_t ectl2_val = CPUECTRL2_VALUE;
 	struct drm_mode_config *mode_config;
-	int ret;
+	int cpu, ret;
 
 	dp0->ops = crossbar->ops;
 	dp0->drm = &crossbar->drm;
@@ -90,6 +101,10 @@ static int baikal_vdu_l1000_probe(struct platform_device *pdev, struct drm_devic
 					drm->primary->debugfs_root, drm->primary);
 		}
 #endif
+		for_each_online_cpu(cpu) {
+			smp_call_function_single(cpu, set_cpuectlr2, &ectl2_val, true);
+		}
+
 		return 0;
 	} else {
 		dev_err(dev, "no active outputs configured\n");
@@ -120,7 +135,7 @@ static void baikal_vdu_l1000_irq_off(struct baikal_vdu_private *priv)
 static void baikal_vdu_l1000_irq_on(struct baikal_vdu_private *priv)
 {
 	baikal_vdu_write(priv, INT_CTRL, ~0);
-	baikal_vdu_write(priv, INT_MASK, ~INT_VFP_START);
+	baikal_vdu_write(priv, INT_MASK, ~(INT_VFP_START | INT_ANY_ERROR));
 }
 
 static void baikal_vdu_l1000_post_allocate_resources(struct baikal_vdu_private *priv)
