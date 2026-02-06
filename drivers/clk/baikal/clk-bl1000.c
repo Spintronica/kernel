@@ -133,10 +133,8 @@ static const struct clk_ops baikal_clk_mux_ops = {
 	.determine_rate = baikal_clk_determine_rate,
 };
 
-static int baikal_clk_probe(struct platform_device *pdev)
+static void baikal_clk_init(struct device_node *node)
 {
-	struct device *dev = &pdev->dev;
-	struct device_node *node = dev_of_node(dev);
 	struct clk_init_data init = { 0 };
 	struct baikal_clk *cmu;
 	struct clk_onecell_data *clk_data;
@@ -157,7 +155,7 @@ static int baikal_clk_probe(struct platform_device *pdev)
 
 	ret = of_property_read_u64(node, "reg", &base);
 	if (ret)
-		return ret;
+		return;
 
 	ret = of_property_read_u32(node, "type", &type);
 	if (ret)
@@ -167,7 +165,7 @@ static int baikal_clk_probe(struct platform_device *pdev)
 	if (num_parents > 0) {
 		parent_names = kcalloc(num_parents, sizeof(char *), GFP_KERNEL);
 		if (!parent_names)
-			return -ENOMEM;
+			return;
 		of_clk_parent_fill(node, parent_names, num_parents);
 	}
 
@@ -186,12 +184,12 @@ static int baikal_clk_probe(struct platform_device *pdev)
 	multi = clk_index_max > 0;
 
 	if (multi) {
-		clk_data = devm_kzalloc(dev, sizeof(*clk_data), GFP_KERNEL);
+		clk_data = kzalloc(sizeof(*clk_data), GFP_KERNEL);
 		if (!clk_data) {
 			ret = -ENOMEM;
 			goto out_free;
 		}
-		clk_data->clks = devm_kcalloc(dev, clk_index_max + 1, sizeof(struct clk *), GFP_KERNEL);
+		clk_data->clks = kcalloc(clk_index_max + 1, sizeof(struct clk *), GFP_KERNEL);
 		if (!clk_data->clks) {
 			ret = -ENOMEM;
 			goto out_free;
@@ -230,9 +228,9 @@ static int baikal_clk_probe(struct platform_device *pdev)
 			init.name = kasprintf(GFP_KERNEL, "%s", clk_name);
 		}
 
-		cmu = devm_kmalloc(dev, sizeof(*cmu), GFP_KERNEL);
+		cmu = kmalloc(sizeof(*cmu), GFP_KERNEL);
 		if (!cmu) {
-			dev_err(dev, "failed to register '%s' clock (%d)\n",
+			pr_err("failed to register '%s' clock (%d)\n",
 				init.name, -ENOMEM);
 			kfree(init.name);
 		}
@@ -240,16 +238,16 @@ static int baikal_clk_probe(struct platform_device *pdev)
 		cmu->base = base;
 		cmu->index = clk_index;
 		cmu->hw.init = &init;
-		clk = devm_clk_register(dev, &cmu->hw);
+		clk = clk_register(NULL, &cmu->hw);
 		if (!IS_ERR(clk)) {
-			devm_clk_hw_register_clkdev(dev, &cmu->hw, init.name, NULL);
+			clk_register_clkdev(clk, init.name, NULL);
 			if (multi)
 				clk_data->clks[clk_index] = clk;
 		}
 		else {
-			dev_err(dev, "failed to register '%s' clock (%ld)\n",
+			pr_err("failed to register '%s' clock (%ld)\n",
 				init.name, PTR_ERR(clk));
-			devm_kfree(dev, cmu);
+			kfree(cmu);
 		}
 		kfree(init.name);
 		if (type == CLK_TYPE_MUX)
@@ -257,18 +255,13 @@ static int baikal_clk_probe(struct platform_device *pdev)
 	}
 
 	if (multi)
-		ret = of_clk_add_provider(pdev->dev.of_node, of_clk_src_onecell_get, clk_data);
+		ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 	else
-		ret = of_clk_add_provider(pdev->dev.of_node, of_clk_src_simple_get, clk);
+		ret = of_clk_add_provider(node, of_clk_src_simple_get, clk);
 
 out_free:
 	kfree(parent_names);
-	return ret;
-}
-
-static void baikal_clk_remove(struct platform_device *pdev)
-{
-	of_clk_del_provider(pdev->dev.of_node);
+	return;
 }
 
 #ifdef CONFIG_ACPI
@@ -567,21 +560,4 @@ static int __init baikal_acpi_clk_driver_init(void)
 device_initcall(baikal_acpi_clk_driver_init);
 #endif
 
-static const struct of_device_id baikal_clk_of_match[] = {
-	{ .compatible = "baikal,bl1000-cmu" },
-	{ /* sentinel */ }
-};
-
-static struct platform_driver bl1000_cmu_driver = {
-	.probe	= baikal_clk_probe,
-	.remove	= baikal_clk_remove,
-	.driver	= {
-		.name = "bl1000-cmu",
-		.of_match_table = baikal_clk_of_match
-	}
-};
-module_platform_driver(bl1000_cmu_driver);
-
-MODULE_DESCRIPTION("Baikal BE-L1000 clock driver");
-MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:bl1000-cmu");
+CLK_OF_DECLARE(bl1000_cmu, "baikal,bl1000-cmu", baikal_clk_init);
