@@ -1,4 +1,4 @@
-image: $CI_REGISTRY/lpt/containers/mc-builder:0-0-5
+image: $CI_REGISTRY/baikal-arm/kernel:1.0
 
 stages:
   - build
