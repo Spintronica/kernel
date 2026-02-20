@@ -11,6 +11,8 @@
 # Normal rules (sorted alphabetically)
 #
 .*
+!.gitlab-ci.yml
+!.docker
 *.a
 *.asn1.[ch]
 *.bin
