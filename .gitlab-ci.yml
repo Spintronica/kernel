@@ -1,0 +1,51 @@
+spec:
+  inputs:
+    git_strategy:
+      options: ['fetch', 'clone', 'none']
+      default: 'fetch'
+    git_depth:
+      default: 200
+---
+
+image: $CI_REGISTRY/baikal-arm/kernel:1.0
+
+stages:
+  - build
+  - package
+
+variables:
+  GIT_STRATEGY: $[[ inputs.git_strategy ]]
+  GIT_DEPTH: $[[ inputs.git_depth ]]
+
+.build_kernel_template: &build_kernel_dfn
+  stage: build
+  tags:
+    - amd64
+  script:
+    - rm -f linux-*.deb linux-*.buildinfo linux-*.changes
+    - rm -rf ./build
+    - make O=./build ${DEFCONFIG}
+    - make O=./build bindeb-pkg -j $(nproc)
+  artifacts:
+    expire_in: 2 hours
+    paths:
+    - linux-*arm64.deb
+
+package:
+  stage: package
+  tags:
+    - amd64
+  script:
+    - |
+      GIT_TAG=$(git describe --tags --no-abbrev)
+      TARNAME="${CPU_TYPE}_${CI_COMMIT_BRANCH}_${CI_COMMIT_SHORT_SHA}.tar"
+      FULL_PATH="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/kernel/${GIT_TAG}/${TARNAME}"
+      echo "Full path: ${FULL_PATH}"
+      tar cf - --exclude='*-dbg_*' linux-*arm64.deb | curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file - ${FULL_PATH}
+    - rm -f linux-*.deb linux-*.buildinfo linux-*.changes
+
+bl1000:
+  variables:
+    DEFCONFIG: baikal_defconfig
+    CPU_TYPE: "bl1000"
+  <<: *build_kernel_dfn
