@@ -23,13 +23,15 @@ variables:
     - amd64
   script:
     - rm -f linux-*.deb linux-*.buildinfo linux-*.changes
-    - rm -rf ./build
+    - rm -rf ./build ./release
+    - mkdir -p release/${CPU_TYPE}
     - make O=./build ${DEFCONFIG}
     - make O=./build bindeb-pkg -j $(nproc)
+    - mv linux-*arm64.deb release/${CPU_TYPE}
   artifacts:
-    expire_in: 2 hours
+    expire_in: 8 hours
     paths:
-    - linux-*arm64.deb
+    - release/*
 
 package:
   stage: package
@@ -38,11 +40,10 @@ package:
   script:
     - |
       GIT_TAG=$(git describe --tags --no-abbrev)
-      TARNAME="${CPU_TYPE}_${CI_COMMIT_BRANCH}_${CI_COMMIT_SHORT_SHA}.tar"
+      TARNAME="${CI_COMMIT_BRANCH}_${CI_COMMIT_SHORT_SHA}.tar"
       FULL_PATH="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/kernel/${GIT_TAG}/${TARNAME}"
       echo "Full path: ${FULL_PATH}"
-      tar cf - --exclude='*-dbg_*' linux-*arm64.deb | curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file - ${FULL_PATH}
-    - rm -f linux-*.deb linux-*.buildinfo linux-*.changes
+      tar cf - -C release . | curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file - ${FULL_PATH}
 
 bl1000:
   variables:
