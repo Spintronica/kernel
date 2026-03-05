@@ -138,7 +138,7 @@ static void baikal_vdpu_reset(struct hantro_ctx *ctx)
 			break;
 		}
 
-		mdelay(BAIKAL_VDPU_CMDBUF_DELAY_MS);
+		ndelay(BAIKAL_VDPU_CMDBUF_DELAY_NS);
 	}
 }
 

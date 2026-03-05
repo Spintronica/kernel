@@ -30,9 +30,6 @@
 
 #define MAX_VDUS	3
 
-#define VDU_M1000	0
-#define VDU_L1000	1
-
 struct baikal_vdu_ops;
 
 struct baikal_vdu_reg_defs {
@@ -46,6 +43,7 @@ struct baikal_vdu_private {
 	struct drm_encoder encoder;
 	struct drm_connector connector;
 	struct drm_plane primary;
+	struct drm_plane cursor;
 	struct clk *clk;
 	void *regs;
 	int irq;
@@ -64,6 +62,9 @@ struct baikal_vdu_private {
 	const struct baikal_vdu_ops *ops;
 	int off;
 	int ready;
+	int max_pix_clock;
+	int max_width;
+	int max_height;
 
 	/* Backlight */
 	struct gpio_desc *enable_gpio;
@@ -89,7 +90,6 @@ struct baikal_vdu_ops {
 	void (*irq_on) (struct baikal_vdu_private *priv);
 	void (*post_allocate_resources) (struct baikal_vdu_private *priv);
 	int (*crtc_create) (struct baikal_vdu_private *priv);
-	const struct drm_plane_helper_funcs *primary_plane_helper_funcs;
 	const struct baikal_vdu_reg_defs *reg_defs;
 	int reg_defs_size;
 };
@@ -106,9 +106,8 @@ int baikal_vdu_remove_efifb(struct drm_device *dev);
 /* CRTC Functions */
 irqreturn_t baikal_vdu_l1000_irq(int irq, void *data);
 int baikal_vdu_l1000_crtc_create(struct baikal_vdu_private *priv);
-void baikal_vdu_crtc_helper_atomic_flush(struct drm_crtc *crtc,
-					   struct drm_atomic_state *old_state);
 int baikal_bl1000_primary_plane_init(struct baikal_vdu_private *priv);
+int baikal_bl1000_cursor_plane_init(struct baikal_vdu_private *priv);
 
 /* Backlight Functions */
 int baikal_vdu_backlight_init(struct drm_device *drm);
@@ -123,5 +122,6 @@ extern struct drm_mode_config_funcs mode_config_funcs;
 extern int dp0_off;
 extern int dp1_off;
 extern int no_edid;
+extern int hw_cursor;
 
 #endif /* __BAIKAL_VDU_DRM_H__ */

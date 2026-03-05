@@ -333,17 +333,16 @@ static void baikal_dp_encoder_mode_set_stream(struct baikal_dp *dp,
 	u32 reg, wpl;
 	u8 lane_cnt = dp->mode.lane_cnt;
 
+	udelay(10000);
+
 	baikal_dp_write(dp_base, BAIKAL_DP_SRC0_STREAM_HTOTAL, mode->htotal);
 	baikal_dp_write(dp_base, BAIKAL_DP_SRC0_STREAM_VTOTAL, mode->vtotal);
 
-/*
 	baikal_dp_write(dp_base, BAIKAL_DP_SRC0_STREAM_POL,
 		      (!!(mode->flags & DRM_MODE_FLAG_PVSYNC) <<
 		      BAIKAL_DP_SRC0_STREAM_POLVSYNC_SHIFT) |
 		      (!!(mode->flags & DRM_MODE_FLAG_PHSYNC) <<
 		      BAIKAL_DP_SRC0_STREAM_POLHSYNC_SHIFT));
-*/
-	baikal_dp_write(dp_base, BAIKAL_DP_SRC0_STREAM_POL, 0); /* TODO sort out */
 
 	baikal_dp_write(dp_base, BAIKAL_DP_SRC0_STREAM_HSWIDTH,
 		      mode->hsync_end - mode->hsync_start);
@@ -372,12 +371,6 @@ static void baikal_dp_encoder_mode_set_stream(struct baikal_dp *dp,
 	wpl = (mode->hdisplay * dp->config.bpp + 7) / 8;
 	reg = (wpl + lane_cnt - 1) / lane_cnt;
 	baikal_dp_write(dp_base, BAIKAL_DP_SRC0_USER_DATA_COUNT, reg);
-
-	baikal_dp_write(dp_base, BAIKAL_DP_SRC0_USER_CONTROL, 0);
-
-	/* TODO sort out */
-	baikal_dp_write(dp_base, BAIKAL_DP_SRC0_USER_SYNC_POLARITY, 0xf);
-	baikal_dp_write(dp_base, BAIKAL_DP_SRC0_COLORIMETRY_OVERRIDE, 0x0);
 }
 
 static void baikal_dp_mainlink_en(struct baikal_dp *dp, u8 enable)
@@ -471,9 +464,10 @@ static void baikal_dp_start(struct baikal_dp *dp)
 
 	/* Set MISC0 and SST_SOURCE here */
 	/* TODO refactor */
-	baikal_dp_write(dp->dp_base, BAIKAL_DP_SRC0_STREAM_MISC0, 0x1);
+	//printk("ENCODER MISC0=0x%x", baikal_dp_read(dp->dp_base, BAIKAL_DP_SRC0_STREAM_MISC0));
+	//baikal_dp_write(dp->dp_base, BAIKAL_DP_SRC0_STREAM_MISC0, 0x1);
 	/* TODO refactor */
-	baikal_dp_write(dp->dp_base, BAIKAL_DP_SST_SOURCE_SELECT, 0x0);
+	//baikal_dp_write(dp->dp_base, BAIKAL_DP_SST_SOURCE_SELECT, 0x0);
 
 	// Disable clock spreading for RX device
 	drm_dp_dpcd_readb(&dp->aux, DP_DOWNSPREAD_CTRL, &data);
@@ -510,6 +504,12 @@ static void baikal_dp_start(struct baikal_dp *dp)
 		return;
 	}
 
+	/* TODO sort out */
+	//baikal_dp_write(dp->dp_base, BAIKAL_DP_SRC0_USER_CONTROL, 0);
+
+	baikal_dp_write(dp->dp_base, BAIKAL_DP_SRC0_USER_SYNC_POLARITY, 0xf);
+	//baikal_dp_write(dp->dp_base, BAIKAL_DP_SRC0_COLORIMETRY_OVERRIDE, 0x0);
+
 	if (val)
 		baikal_dp_mainlink_en(dp, 0x1);
 
@@ -522,7 +522,7 @@ static void baikal_dp_start(struct baikal_dp *dp)
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_SOFT_RESET,
 			      BAIKAL_DP_SOFT_RESET_LINK_RESET |
 			      BAIKAL_DP_SOFT_RESET_VIDEO_RESET);
-
+	/* SECTION A BEGIN */
 	baikal_dp_mainlink_en(dp, 0x1);
 
 	// check link status
@@ -536,13 +536,6 @@ static void baikal_dp_start(struct baikal_dp *dp)
 
 	/* Enable all interrupts */
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_INTERRUPT_MASK, 0);
-
-	baikal_dp_set_color(dp, DRM_FORMAT_RGB888);
-
-	baikal_dp_encoder_mode_set_stream(dp, dp->adjusted_mode);
-	baikal_dp_encoder_mode_set_transfer_unit(dp, dp->adjusted_mode);
-
-	baikal_dp_write(dp->dp_base, BAIKAL_DP_INPUT_SOURCE_ENABLE, 1);
 }
 
 static void baikal_dp_stop(struct baikal_dp *dp)
@@ -556,7 +549,7 @@ static void baikal_dp_stop(struct baikal_dp *dp)
 	phy_cfg->voltage[0] = 0;
 	phy_cfg->set_voltages = 1;
 
-	//phy_configure(dp->phy[0], &dp->phy_opts);
+	phy_configure(dp->phy[0], &dp->phy_opts);
 }
 
 static int baikal_dp_txconnected(struct baikal_dp *dp)
@@ -863,7 +856,9 @@ static void baikal_dp_encoder_enable(struct drm_encoder *encoder)
 
 	if (!dp->enabled) {
 		dp->enabled = true;
+
 		baikal_dp_start(dp);
+		baikal_dp_write(dp->dp_base, BAIKAL_DP_INPUT_SOURCE_ENABLE, 1);
 	}
 }
 
@@ -872,10 +867,12 @@ static void baikal_dp_encoder_disable(struct drm_encoder *encoder)
 	struct baikal_dp *dp = encoder_to_dp(encoder);
 
 	if (dp->enabled) {
-		//dp->enabled = false;
+		dp->enabled = false;
 		cancel_delayed_work(&dp->hpd_work);
 		cancel_delayed_work(&dp->hpd_pulse_work);
-		//baikal_dp_stop(dp);
+
+		baikal_dp_write(dp->dp_base, BAIKAL_DP_INPUT_SOURCE_ENABLE, 0);
+		baikal_dp_stop(dp);
 	}
 
 	//pm_runtime_put_sync(dp->dev);
@@ -946,10 +943,12 @@ baikal_dp_encoder_atomic_mode_set(struct drm_encoder *encoder,
 	 */
 	drm_fourcc = encoder->crtc->primary->state->fb->format->format;
 
+	/* SECTION B BEGIN */
 	baikal_dp_set_color(dp, drm_fourcc);
 
-	baikal_dp_encoder_mode_set_stream(dp, adjusted_mode);
-	baikal_dp_encoder_mode_set_transfer_unit(dp, adjusted_mode);
+	baikal_dp_encoder_mode_set_stream(dp, dp->adjusted_mode);
+	baikal_dp_encoder_mode_set_transfer_unit(dp, dp->adjusted_mode);
+	/* SECTION B END */
 }
 
 static const struct drm_encoder_funcs baikal_dp_encoder_funcs = {
@@ -1299,7 +1298,7 @@ static void baikal_dp_debugfs_init(struct baikal_dp *dp)
 {
 	struct dentry *debug_dir = debugfs_create_dir("baikal_dp", NULL);
 	if (debug_dir == NULL) {
-		printk("FAILED CREATE DEBUGFS DIR");
+		dev_err(dp->dev, "failed to create debugfs directory\n");
 	}
 	debugfs_create_file("baikal_dp_stats", 0444, debug_dir, dp,
 			    &baikal_dp_stats_fops);

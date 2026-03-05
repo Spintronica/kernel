@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Device tree source for Baikal Electronics DBM boards
- * Copyright (C) 2019-2025 Baikal Electronics, JSC
+ * Copyright (C) 2019-2026 Baikal Electronics, JSC
  */
 
+#include <dt-bindings/input/input.h>
 #include "bm1000.dtsi"
-#include "bm1000-dbm-mezzanine-multimedia.dtsi"
-#include "bm1000-dbm-mezzanine-xgbe-krkx4.dtsi"
 
 / {
 	aliases {
@@ -256,3 +255,240 @@
 &vdu {
 	status = "okay";
 };
+
+/**************************************************/
+/* Audio/SD/eMMC/LVDS expansion (mezzanine) board */
+/**************************************************/
+/ {
+#ifdef USE_I2S
+	sound {
+		compatible = "baikal,snd-soc-baikal";
+		baikal,cpu-dai = <&i2s>;
+		baikal,audio-codec = <&tlv320aic3x>;
+		baikal,dai-name = "tlv320aic3x";
+		baikal,codec-name = "tlv320aic3x-hifi";
+		baikal,stream-name = "tlv320aic3x hifi";
+	};
+#endif
+
+#ifdef USE_LVDS
+	buttons-backlight {
+		compatible = "gpio-keys";
+		autorepeat;
+		button-brightness-down {
+			label = "Brightness Down Button";
+			linux,code = <KEY_BRIGHTNESSDOWN>;
+			gpios = <&porta 18 GPIO_ACTIVE_LOW>;
+			debounce-interval = <50>;
+		};
+		button-brightness-up {
+			label = "Brightness Up Button";
+			linux,code = <KEY_BRIGHTNESSUP>;
+			gpios = <&porta 17 GPIO_ACTIVE_LOW>;
+			debounce-interval = <50>;
+		};
+	};
+
+	panel {
+		compatible = "panel-lvds";
+		width-mm = <223>;
+		height-mm = <125>;
+		data-mapping = "vesa-24";
+		/*
+		 * In order to utilize LVDS LCD panel, make sure that
+		 * 'status' is "okay" along with &vdu 'status' (see below).
+		 */
+		status = "okay";
+		panel-timing {
+			/* 1920x1080 @ 60 Hz */
+			/* Replace values below with actual panel timings */
+			clock-frequency = <148500000>;
+			hactive = <1920>;
+			vactive = <1080>;
+			hsync-len = <44>;
+			hfront-porch = <88>;
+			hback-porch = <148>;
+			vsync-len = <5>;
+			vfront-porch = <4>;
+			vback-porch = <36>;
+		};
+		port {
+			panel_in: endpoint@0 {
+				remote-endpoint = <&vdu_lvds_out>;
+			};
+		};
+	};
+#endif
+};
+
+#ifdef USE_HDA
+&hda {
+	status = "okay";
+};
+#endif
+
+#ifdef USE_I2S
+&i2c1 {
+	tlv320aic3x: tlv320aic3x@18 {
+		compatible = "ti,tlv320aic3x";
+		reg = <0x18>;
+		#sound-dai-cells = <0>;
+		reset-gpios = <&porta 4 GPIO_ACTIVE_LOW>;
+		ai3x-micbias-vg = <1>;
+		ai3x-ocmv = <1>;
+		status = "okay";
+	};
+};
+
+&i2s {
+	status = "okay";
+	sound-dai = <&tlv320aic3x>;
+};
+#endif
+
+#ifdef USE_EMMC
+&mmc {
+	/* eMMC */
+	status = "okay";
+	bus-width = <8>;
+	max-frequency = <200000000>;
+	no-sd;
+	no-sdio;
+	non-removable;
+};
+#endif
+
+#ifdef USE_SD
+&mmc {
+	/* SD */
+	status = "okay";
+	bus-width = <4>;
+	max-frequency = <25000000>;
+	disable-wp;
+	no-mmc;
+	no-sdio;
+};
+#endif
+
+#ifdef USE_LVDS
+&vdu {
+	/*
+	 * 'lvds-lanes' property is mandatory to enable LVDS. Valid values are 1, 2 or 4.
+	 * It is also mandatory to provide actual values for 'enable-gpios' property.
+	 * Also make sure that panel's 'status' (see above) is "okay".
+	 */
+	enable-gpios = <&porta 16 GPIO_ACTIVE_LOW>;
+	lvds-lanes = <2>;
+	backlight {
+		min-brightness-level = <10>;
+		default-brightness-level = <60>;
+		brightness-level-step = <2>;
+		pwm-frequency = <20000>;
+	};
+	ports {
+		port@1 {
+			reg = <1>;
+			vdu_lvds_out: endpoint@0 {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+#endif
+
+/*******************************************/
+/* XGbE KR/KX4 expansion (mezzanine) board */
+/*******************************************/
+#ifdef USE_KRKX4
+
+#include <dt-bindings/net/mv-phy-88x2222.h>
+
+/ {
+	aliases {
+		mdio-gpio0 = &mdio_gpio;
+	};
+
+	mdio_gpio: mdio {
+		compatible = "virtual,mdio-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&porta 28 GPIO_ACTIVE_HIGH>,
+			<&porta 29 GPIO_ACTIVE_HIGH>;
+		reset-gpio = <&porta 30 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+
+		xgmac0_phy: ethernet-phy@c {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <0x0c>;
+			interrupt-parent = <&porta>;
+			interrupts = <31 IRQ_TYPE_LEVEL_LOW>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			gpio-controller; /* 12 pins */
+			#gpio-cells = <2>;
+			gpio-reserved-ranges = <MV_88X2222_LED0 1>,
+					       <MV_88X2222_LED1 1>,
+					       <MV_88X2222_SDA 1>,
+					       <MV_88X2222_SCL 1>;
+			sfp = <&xgmac0_sfp>;
+		};
+
+		xgmac1_phy: ethernet-phy@e {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <0x0e>;
+			interrupt-parent = <&porta>;
+			interrupts = <31 IRQ_TYPE_LEVEL_LOW>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			gpio-controller; /* 12 pins */
+			#gpio-cells = <2>;
+			gpio-reserved-ranges = <MV_88X2222_LED0 1>,
+					       <MV_88X2222_LED1 1>,
+					       <MV_88X2222_SDA 1>,
+					       <MV_88X2222_SCL 1>;
+			sfp = <&xgmac1_sfp>;
+		};
+	};
+
+	xgmac0_sfp: sfp0 {
+		compatible = "sff,sfp";
+		i2c-bus = <&xgmac0_phy>;
+		mod-def0-gpios = <&xgmac0_phy MV_88X2222_MOD_ABS GPIO_ACTIVE_LOW>;
+		tx-fault-gpios = <&xgmac0_phy MV_88X2222_TX_FAULT GPIO_ACTIVE_HIGH>;
+		los-gpios = <&xgmac0_phy MV_88X2222_RX_LOS GPIO_ACTIVE_HIGH>;
+		tx-disable-gpios = <&xgmac0_phy MV_88X2222_TX_DISABLE GPIO_ACTIVE_HIGH>;
+	};
+
+	xgmac1_sfp: sfp1 {
+		compatible = "sff,sfp";
+		i2c-bus = <&xgmac1_phy>;
+		mod-def0-gpios = <&xgmac1_phy MV_88X2222_MOD_ABS GPIO_ACTIVE_LOW>;
+		tx-fault-gpios = <&xgmac1_phy MV_88X2222_TX_FAULT GPIO_ACTIVE_HIGH>;
+		los-gpios = <&xgmac1_phy MV_88X2222_RX_LOS GPIO_ACTIVE_HIGH>;
+		tx-disable-gpios = <&xgmac1_phy MV_88X2222_TX_DISABLE GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&xgmac0 {
+	managed = "auto";
+	phy-handle = <&xgmac0_phy>;
+	phy-mode = "xaui";
+	status = "okay";
+};
+
+&xgmac0_pcs {
+	status = "okay";
+};
+
+&xgmac1 {
+	managed = "auto";
+	phy-handle = <&xgmac1_phy>;
+	phy-mode = "xaui";
+	status = "okay";
+};
+
+&xgmac1_pcs {
+	status = "okay";
+};
+
+#endif /* USE_KRKX4 */

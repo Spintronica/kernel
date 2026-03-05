@@ -27,12 +27,13 @@
 #define DRIVER_DESC	"Baikal VDU DRM driver"
 #define DRIVER_DATE	"20251201"
 
-#define IFIFO_SIZE	16384
-#define UHD_FIFO_SIZE	16384
-
 int dp0_off = 0;
 int dp1_off = 0;
 int no_edid = 0;
+int hw_cursor = 1;
+int max_pix_clock = 600000;
+int max_width = 3840;
+int max_height = 2160;
 
 extern const struct baikal_vdu_ops baikal_vdu_l1000_ops;
 
@@ -56,28 +57,6 @@ inline u32 baikal_vdu_read(struct baikal_vdu_private *priv,
 	u32 value = readl(priv->regs + reg);
 	return value;
 }
-
-#if 0
-static struct drm_bridge *devm_baikal_of_get_bridge(struct device *dev,
-					  struct device_node *np,
-					  u32 port, u32 endpoint)
-{
-	struct drm_bridge *bridge;
-	struct drm_panel *panel;
-	int ret;
-
-	ret = drm_of_find_panel_or_bridge(np, port, endpoint,
-					  &panel, &bridge);
-	if (ret)
-		return ERR_PTR(ret);
-
-	if (panel) {
-		bridge = devm_baikal_bridge_add(dev, panel, DRM_MODE_CONNECTOR_LVDS);
-	}
-
-	return bridge;
-}
-#endif
 
 int baikal_vdu_remove_efifb(struct drm_device *dev)
 {
@@ -105,47 +84,6 @@ void baikal_vdu_set_name(struct baikal_vdu_private *priv, int index, const char 
 	priv->index = index;
 }
 
-#if 0
-int baikal_vdu_bridge_init(struct baikal_vdu_private *priv, struct drm_device *drm) {
-	int ret = 0;
-	struct device *dev;
-	struct drm_bridge *bridge;
-	if (!priv || !drm)
-		return -ENODEV;
-	priv->drm = drm;
-	dev = drm->dev;
-	bridge = devm_baikal_of_get_bridge(dev, dev->of_node, priv->index, 0);
-	dev_err(dev, "HERE WE HAVE TRIED TO INIT BRIDGE 0x%x\n", bridge);
-	if (IS_ERR(bridge)) {
-		ret = PTR_ERR(bridge);
-		if (ret == -EPROBE_DEFER) {
-			dev_info(dev, "%s: bridge probe deferred\n", priv->name);
-		}
-		priv->bridge = NULL;
-	} else {
-		priv->bridge = bridge;
-	}
-	return ret;
-}
-#endif
-
-void baikal_vdu_crtc_helper_atomic_flush(struct drm_crtc *crtc,
-					   struct drm_atomic_state *old_state)
-{
-	struct drm_pending_vblank_event *event = crtc->state->event;
-
-	if (event) {
-		crtc->state->event = NULL;
-
-		spin_lock_irq(&crtc->dev->event_lock);
-		if (crtc->state->active && drm_crtc_vblank_get(crtc) == 0)
-			drm_crtc_arm_vblank_event(crtc, event);
-		else
-			drm_crtc_send_vblank_event(crtc, event);
-		spin_unlock_irq(&crtc->dev->event_lock);
-	}
-}
-
 static int baikal_vdu_modeset_init(struct baikal_vdu_private *priv)
 {
 	struct drm_device *dev = priv->drm;
@@ -158,6 +96,14 @@ static int baikal_vdu_modeset_init(struct baikal_vdu_private *priv)
 	if (ret != 0) {
 		dev_err(dev->dev, "%s: failed to init primary plane\n", priv->name);
 		return ret;
+	}
+
+	if (hw_cursor) {
+		ret = baikal_bl1000_cursor_plane_init(priv);
+		if (ret != 0) {
+			dev_err(dev->dev, "%s: failed to init cursor plane\n", priv->name);
+			return ret;
+		}
 	}
 
 	ret = priv->ops->crtc_create(priv);
@@ -246,7 +192,13 @@ static int baikal_vdu_allocate_clk(struct baikal_vdu_private *priv)
 
 int baikal_vdu_resources_init(struct platform_device *pdev, struct baikal_vdu_private *priv)
 {
-	int ret = baikal_vdu_allocate_resources(pdev, priv);
+	int ret;
+
+	priv->max_pix_clock = max_pix_clock;
+	priv->max_width = max_width;
+	priv->max_height = max_height;
+
+	ret = baikal_vdu_allocate_resources(pdev, priv);
 	if (ret)
 		return 0;
 	ret = baikal_vdu_allocate_irq(pdev, priv);
@@ -370,6 +322,10 @@ static struct platform_driver baikal_bl1000_vdu_driver = {
 module_param(dp0_off, int, 0644);
 module_param(dp1_off, int, 0644);
 module_param(no_edid, int, 0644);
+module_param(hw_cursor, int, 0644);
+module_param(max_pix_clock, int, 0644);
+module_param(max_width, int, 0644);
+module_param(max_height, int, 0644);
 
 module_platform_driver(baikal_bl1000_vdu_driver);
 

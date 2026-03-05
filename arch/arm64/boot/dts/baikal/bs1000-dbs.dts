@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Device tree source for DBS compatible boards:
- *   - DBS vA0
- *
- * Copyright (C) 2021-2025 Baikal Electronics, JSC
+ * Device tree source for DBS compatible boards (DBS vA0)
+ * Copyright (C) 2021-2026 Baikal Electronics, JSC
  */
 
 /dts-v1/;
@@ -105,3 +103,120 @@
 	status = "okay";
 	num-lanes = <4>;
 };
+
+/************************************************/
+/* DBS X6.16 socket expansion (mezzanine) board */
+/************************************************/
+#if defined(USE_EXPBOARD_DBS_X6_16)
+&soc0_espi {
+	cs-gpios = <&soc0_portc 0 GPIO_ACTIVE_LOW>,
+		   <&soc0_portc 1 GPIO_ACTIVE_LOW>,
+		   <&soc0_portc 2 GPIO_ACTIVE_LOW>,
+		   <&soc0_portc 3 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <5000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		status = "okay";
+	};
+
+	flash@1 {
+		compatible = "jedec,spi-nor";
+		reg = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <5000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		status = "okay";
+	};
+
+	flash@2 {
+		compatible = "jedec,spi-nor";
+		reg = <2>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <5000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		status = "okay";
+	};
+
+	flash@3 {
+		compatible = "jedec,spi-nor";
+		reg = <3>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <5000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		status = "okay";
+	};
+};
+
+&soc0_gpio16 {
+	status = "disable";
+};
+#endif
+
+/*************************************************/
+/* DBS X11.16 socket expansion (mezzanine) board */
+/*************************************************/
+#if defined(USE_EXPBOARD_DBS_X11_16)
+&soc0_qspi2 {
+	status = "okay";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <12500000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		status = "okay";
+	};
+
+	flash@1 {
+		compatible = "jedec,spi-nor";
+		reg = <1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		spi-max-frequency = <12500000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <1>;
+		status = "okay";
+	};
+};
+
+&soc0_gpio8_2 {
+	status = "disable";
+};
+#endif
+
+/*************************************************/
+/* ENABLE: i2c5, i2c6, uarts                     */
+/*************************************************/
+#if defined(USE_I2C5_I2C6_UARTS)
+&soc0_i2c5 {
+	status = "okay";
+};
+
+&soc0_i2c6 {
+	status = "okay";
+};
+
+&soc0_uart_s {
+	status = "okay";
+};
+
+&soc0_gpio8_1 {
+	status = "disable";
+};
+#endif

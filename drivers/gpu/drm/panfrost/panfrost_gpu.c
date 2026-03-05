@@ -115,8 +115,8 @@ void panfrost_gpu_amlogic_quirk(struct panfrost_device *pfdev)
 
 void panfrost_gpu_bl1000_quirk(struct panfrost_device *pfdev)
 {
-	/* Enable ACE protocol coherency */
-	gpu_write(pfdev, GPU_COHERENCY_ENABLE, 1);
+	/* Enable ACE-Lite protocol coherency */
+	gpu_write(pfdev, GPU_COHERENCY_ENABLE, 0);
 }
 
 static void panfrost_gpu_init_quirks(struct panfrost_device *pfdev)

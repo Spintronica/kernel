@@ -170,6 +170,12 @@ static const struct mmc_fixup __maybe_unused mmc_ext_csd_fixups[] = {
 	MMC_FIXUP_EXT_CSD_REV(CID_NAME_ANY, CID_MANFID_NUMONYX,
 			      0x014e, add_quirk, MMC_QUIRK_BROKEN_HPI, 6),
 
+	/*
+	 * This Toshiba eMMC card does not report mode switch status.
+	 */
+	MMC_FIXUP("064G02", CID_MANFID_TOSHIBA, 0x0100, add_quirk,
+		  MMC_QUIRK_NO_SWITCH_STATUS),
+
 	END_FIXUP
 };
 

@@ -47,6 +47,30 @@
 
 #define TE_EN				0x430
 
+#define CURSOR_CTRL_0			0x410
+#define CURSOR_CTRL_0_ENABLE		BIT(0)
+#define CURSOR_CTRL_0_SIZE_MASK		GENMASK(9, 8)
+#define CURSOR_CTRL_0_SIZE_24x24	(0 << 8)
+#define CURSOR_CTRL_0_SIZE_32x32	(1 << 8)
+#define CURSOR_CTRL_0_SIZE_48x48	(2 << 8)
+#define CURSOR_CTRL_0_SIZE_64x64	(3 << 8)
+#define CURSOR_CTRL_0_ALPHA		BIT(16)
+
+#define CURSOR_CTRL_1			0x414
+#define CURSOR_CTRL_2			0x418
+
+#define CURSOR_CTRL_3			0x41c
+#define CURSOR_CTRL_3_WORDS_MASK	GENMASK(1, 0)
+#define CURSOR_CTRL_3_WORDS(x)		(((x) >> 3) << 0)
+#define CURSOR_CTRL_3_OUTST_MASK	GENMASK(10, 8)
+#define CURSOR_CTRL_3_OUTST(x)		(((x) - 1) << 8)
+
+#define CURSOR_CTRL_4			0x420
+#define CURSOR_CTRL_4_Y_START_MASK	GENMASK(15, 0)
+#define CURSOR_CTRL_4_Y_START(x)	((x) << 0)
+#define CURSOR_CTRL_4_X_START_MASK	GENMASK(31, 16)
+#define CURSOR_CTRL_4_X_START(x)	((x) << 16)
+
 #define TE_CTRL_0			0x434
 #define TE_CTRL_0_HBP_MASK	GENMASK(25, 16)
 #define TE_CTRL_0_HBP(x)	((x) << 16)
@@ -95,23 +119,6 @@
 #define pipe_window_reg(start, end) \
 		(((start) << 16) | \
 		(end))
-
-#define CPUECTRL2_TXREQ_MIN	(1)	/* 0(1/4-default), 1(1/8), 2(1/16), 3(1/32) */
-#define CPUECTRL2_PF_MODE	(3)	/* 0(0,0), 1(0,1), 2(0,2), 3(0,3-default), 4(1,1) .. 9(3,3) */
-#define CPUECTRL2_F_WINDOW	(3)	/* 0(256-default), 1(64), 2(128), 3(512) */
-#define CPUECTRL2_F_TRH		(1)	/* 0(1/16-default), 1(1/32), 2(1/8), 3(1/4) */
-#define CPUECTRL2_TXREQ_DEC	(0)	/* 0(4-default), 1(8), 2(16), 3(2) */
-#define CPUECTRL2_TXREQ_INC	(3)	/* 0(4-default), 1(8), 2(16), 3(2) */
-#define CPUECTRL2_CBUSY_ON	(1)	/* 0(off-default), 1(on) */
-#define CPUECTRL2_TXREQ_MAX	(0)	/* 0(4/4-default), 1(3/4), 2(2/4), 3(1/4) */
-#define CPUECTRL2_VALUE		((CPUECTRL2_TXREQ_MIN << 15) | \
-				 (CPUECTRL2_PF_MODE << 11) | \
-				 (CPUECTRL2_F_WINDOW << 9) | \
-				 (CPUECTRL2_F_TRH << 7) | \
-				 (CPUECTRL2_TXREQ_DEC << 5) | \
-				 (CPUECTRL2_TXREQ_INC << 3) | \
-				 (CPUECTRL2_CBUSY_ON << 2) | \
-				  CPUECTRL2_TXREQ_MAX);
 
 struct baikal_vdu_drm_format {
 	u32 reg;

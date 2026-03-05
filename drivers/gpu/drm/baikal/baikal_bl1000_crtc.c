@@ -122,20 +122,9 @@ static void baikal_vdu_crtc_helper_mode_set_nofb(struct drm_crtc *crtc)
 	drm_mode_debug_printmodeline(mode);
 
 	struct clk *clk_parent = clk_get_parent(priv->clk);
-	if (mode->crtc_clock > 297000) {
-		clk_set_rate(clk_parent, mode->crtc_clock * 1000 * 2);
-	} else if (mode->crtc_clock > 148500) {
-		clk_set_rate(clk_parent, mode->crtc_clock * 1000 * 4);
-	} else if (mode->crtc_clock > 74250) {
-		clk_set_rate(clk_parent, mode->crtc_clock * 1000 * 8);
-	}
-
-	rate = clk_round_rate(priv->clk, mode->crtc_clock * 1000);
-
-	baikal_vdu_write(priv, TE_EN, 0);
-
-	clk_set_rate(priv->clk, rate);
-	clk_prepare_enable(priv->clk);
+	rate = clk_round_rate(clk_parent, mode->crtc_clock * 1000 * 2);
+	clk_set_rate(clk_parent, rate);
+	clk_set_rate(priv->clk, rate / 2);
 
 	baikal_vdu_write(priv, TE_CTRL_0,
 		(TE_CTRL_0_HFP(mode->hsync_start - mode->hdisplay) & TE_CTRL_0_HFP_MASK) |
@@ -157,23 +146,30 @@ static void baikal_vdu_crtc_helper_mode_set_nofb(struct drm_crtc *crtc)
 	if (mode->flags & DRM_MODE_FLAG_NHSYNC)
 		val |= POLAR_CTRL_HS_INV;
 	baikal_vdu_write(priv, POLAR_CTRL, val);
-
-	baikal_vdu_write(priv, TE_EN, 1);
 }
 
 static enum drm_mode_status baikal_vdu_l1000_mode_valid(struct drm_crtc *crtc,
 	                const struct drm_display_mode *mode)
 {
-	/* TODO implement validity check */
-	return MODE_OK;
+	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
+
+	if ((mode->hdisplay <= priv->max_width &&
+			mode->vdisplay <= priv->max_height &&
+			mode->clock <= priv->max_pix_clock) ||
+			(mode->hdisplay == 3200 && mode->vdisplay == 1800))
+		return MODE_OK;
+	else
+		return MODE_BAD;
 }
 
 static void baikal_vdu_l1000_crtc_helper_atomic_enable(struct drm_crtc *crtc,
-						       struct drm_atomic_state *old_state)
+						       struct drm_atomic_state *state)
 {
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
+	struct clk *clk_parent = clk_get_parent(priv->clk);
 
 	DRM_DEV_DEBUG_DRIVER(crtc->dev->dev, "enabling pixel clock\n");
+	clk_prepare_enable(clk_parent);
 	clk_prepare_enable(priv->clk);
 
 	/* Enable and Power Up */
@@ -184,9 +180,10 @@ static void baikal_vdu_l1000_crtc_helper_atomic_enable(struct drm_crtc *crtc,
 }
 
 static void baikal_vdu_l1000_crtc_helper_atomic_disable(struct drm_crtc *crtc,
-							struct drm_atomic_state *old_state)
+							struct drm_atomic_state *state)
 {
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
+	struct clk *clk_parent = clk_get_parent(priv->clk);
 
 	// TODO disable IRQs if needed
 	drm_crtc_vblank_off(crtc);
@@ -196,7 +193,30 @@ static void baikal_vdu_l1000_crtc_helper_atomic_disable(struct drm_crtc *crtc,
 
 	/* Disable clock */
 	DRM_DEV_DEBUG_DRIVER(crtc->dev->dev, "disabling pixel clock\n");
+	clk_disable_unprepare(clk_parent);
 	clk_disable_unprepare(priv->clk);
+}
+
+static void baikal_vdu_l1000_crtc_helper_atomic_flush(struct drm_crtc *crtc,
+						      struct drm_atomic_state *state)
+{
+	struct drm_crtc_state *new_crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
+	struct drm_pending_vblank_event *event;
+	unsigned long flags;
+
+	event = new_crtc_state->event;
+
+	if (event) {
+		new_crtc_state->event = NULL;
+
+		spin_lock_irqsave(&crtc->dev->event_lock, flags);
+		if (new_crtc_state->active && drm_crtc_vblank_get(crtc) == 0) {
+			drm_crtc_arm_vblank_event(crtc, event);
+		} else {
+			drm_crtc_send_vblank_event(crtc, event);
+		}
+		spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
+	}
 }
 
 // TODO common for M1000 and L1000, consider refactoring
@@ -216,7 +236,7 @@ const struct drm_crtc_helper_funcs baikal_vdu_l1000_crtc_helper_funcs = {
 	.mode_set_nofb = baikal_vdu_crtc_helper_mode_set_nofb,
 	.mode_valid = baikal_vdu_l1000_mode_valid,
 	.atomic_enable = baikal_vdu_l1000_crtc_helper_atomic_enable,
-	.atomic_flush = baikal_vdu_crtc_helper_atomic_flush,
+	.atomic_flush = baikal_vdu_l1000_crtc_helper_atomic_flush,
 	.atomic_disable = baikal_vdu_l1000_crtc_helper_atomic_disable,
 };
 
@@ -224,13 +244,16 @@ int baikal_vdu_l1000_crtc_create(struct baikal_vdu_private *priv)
 {
 	struct drm_device *dev = priv->drm;
 	struct drm_crtc *crtc = &priv->crtc;
+	struct clk *clk_parent = clk_get_parent(priv->clk);
 
 	drm_crtc_init_with_planes(dev, crtc,
-				  &priv->primary, NULL,
+				  &priv->primary,
+				  hw_cursor ? &priv->cursor : NULL,
 				  &baikal_vdu_l1000_crtc_funcs, "primary");
 	drm_crtc_helper_add(crtc, &baikal_vdu_l1000_crtc_helper_funcs);
 
 	DRM_DEV_DEBUG_DRIVER(crtc->dev->dev, "enabling pixel clock\n");
+	clk_prepare_enable(clk_parent);
 	clk_prepare_enable(priv->clk);
 
 	return 0;

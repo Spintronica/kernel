@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Device tree include file for BE-L1000 SoC
- * Copyright (C) 2022-2025 Baikal Electronics, JSC
+ * Copyright (C) 2022-2026 Baikal Electronics, JSC
  */
 
 #include <dt-bindings/gpio/gpio.h>
@@ -35,6 +35,7 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 	interrupt-parent = <&sc_gic>;
+	dma-coherent;
 
 	aliases {
 		i2c0	= &sc_i2c0;
@@ -1255,7 +1256,6 @@
 				 <&sc_cmu0_clkch 29>, <&sc_cmu0_clkch 28>;
 			clock-names = "pclk", "stmmaceth", "tx2_clk", "ptp_ref";
 			max-speed = <1000>;
-			dma-coherent;
 			status = "disabled";
 
 			mdio: mdio {
@@ -1269,7 +1269,8 @@
 			compatible = "baikal,bl1000-sd4hc";
 			reg = <0x0 0x2410000 0x0 0x3000>;
 			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&sc_cmu0_clkch 27>;	/* TODO: check it! */
+			clocks = <&sc_cmu0_clkch 27>;
+			wp-inverted;
 			status = "disabled";
 		};
 
@@ -1392,6 +1393,13 @@
 				msi-controller;
 				#msi-cells = <1>;
 			};
+		};
+
+		pmu@10000000 {
+			compatible = "arm,cmn-700";
+			reg = <0x0 0x10000000 0x0 0x8000000>;
+			interrupts = <GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
 		};
 
 		hsp_gpr_mmrst0: reset-controller@28840000 {
@@ -1799,12 +1807,32 @@
 			interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "dp0_irq", "dptx_irq";
-			clocks = <&hsp_cmu2_pll>,
+			clocks = <&hsp_cmu2_clkch 0>,
 				 <&hsp_cmu0_clkch 5>;
 			clock-names = "dp0_pclk",
 				      "s_axi_aclk";
 			phys = <&edp_phy 0>;
 			phy-names = "dp_phy";
+			status = "disabled";
+		};
+
+		hsp_usb0_phy20_l0: phy@2a600000 {
+			compatible = "cdns,usb2-phy";
+			reg = <0x0 0x2a600000 0x0 0x100000>;
+			resets = <&hsp_gpr_mmrst0 17>;
+			reset-names = "apb";
+			clocks = <&hsp_cmu0_clkch 12>, <&hsp_cmu0_clkch 13>;
+			clock-names = "refclk", "pclk";
+			status = "disabled";
+		};
+
+		hsp_usb0_phy20_l1: phy@2a700000 {
+			compatible = "cdns,usb2-phy";
+			reg = <0x0 0x2a700000 0x0 0x100000>;
+			resets = <&hsp_gpr_mmrst0 18>;
+			reset-names = "apb";
+			clocks = <&hsp_cmu0_clkch 12>, <&hsp_cmu0_clkch 13>;
+			clock-names = "refclk", "pclk";
 			status = "disabled";
 		};
 
@@ -1818,6 +1846,8 @@
 				     <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "otg", "peripheral", "host";
+			resets = <&hsp_gpr_mmrst0 13>;
+			reset-names = "apb";
 			status = "disabled";
 		};
 
@@ -1831,6 +1861,8 @@
 				     <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "otg", "peripheral", "host";
+			resets = <&hsp_gpr_mmrst0 14>;
+			reset-names = "apb";
 			status = "disabled";
 		};
 
@@ -1838,7 +1870,7 @@
 			compatible = "cdns,torrent-phy";
 			reg = <0x0 0x2aa00000 0x0 0x100000>;
 			reg-names = "torrent_phy";
-			resets = <&hsp_gpr_mmrst1 8>, <&hsp_gpr_mmrst0 16>;
+			resets = <&hsp_gpr_mmrst1 6>, <&hsp_gpr_mmrst0 16>;
 			reset-names = "torrent_reset", "torrent_apb";
 			clocks = <&refclk100mhz>;
 			clock-names = "refclk";
@@ -1846,13 +1878,43 @@
 			#size-cells = <0>;
 			status = "disabled";
 
-			hsp_usb0_phy10g_phy0: phy@0 {
+			hsp_usb0_phy10g_l0: phy@0 {
 				reg = <0>;
-				resets = <&hsp_gpr_mmrst1 6>;
+				resets = <&hsp_gpr_mmrst0 17>;
 				#phy-cells = <0>;
 				cdns,phy-type = <PHY_TYPE_USB3>;
+				cdns,num-lanes = <1>;
 				status = "disabled";
 			};
+
+			hsp_usb0_phy10g_l1: phy@1 {
+				reg = <1>;
+				resets = <&hsp_gpr_mmrst0 18>;
+				#phy-cells = <0>;
+				cdns,phy-type = <PHY_TYPE_USB3>;
+				cdns,num-lanes = <1>;
+				status = "disabled";
+			};
+		};
+
+		hsp_usb1_phy20_l0: phy@2ab00000 {
+			compatible = "cdns,usb2-phy";
+			reg = <0x0 0x2ab00000 0x0 0x100000>;
+			resets = <&hsp_gpr_mmrst0 24>;
+			reset-names = "apb";
+			clocks = <&hsp_cmu0_clkch 19>, <&hsp_cmu0_clkch 20>;
+			clock-names = "refclk", "pclk";
+			status = "disabled";
+		};
+
+		hsp_usb1_phy20_l1: phy@2ac00000 {
+			compatible = "cdns,usb2-phy";
+			reg = <0x0 0x2ac00000 0x0 0x100000>;
+			resets = <&hsp_gpr_mmrst0 25>;
+			reset-names = "apb";
+			clocks = <&hsp_cmu0_clkch 19>, <&hsp_cmu0_clkch 20>;
+			clock-names = "refclk", "pclk";
+			status = "disabled";
 		};
 
 		hsp_usb1_l0: usb@2ad00000 {
@@ -1865,6 +1927,8 @@
 				     <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "otg", "peripheral", "host";
+			resets = <&hsp_gpr_mmrst0 20>;
+			reset-names = "apb";
 			status = "disabled";
 		};
 
@@ -1878,6 +1942,8 @@
 				     <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "otg", "peripheral", "host";
+			resets = <&hsp_gpr_mmrst0 21>;
+			reset-names = "apb";
 			status = "disabled";
 		};
 
@@ -1885,7 +1951,7 @@
 			compatible = "cdns,torrent-phy";
 			reg = <0x0 0x2af00000 0x0 0x100000>;
 			reg-names = "torrent_phy";
-			resets = <&hsp_gpr_mmrst1 24>, <&hsp_gpr_mmrst0 23>;
+			resets = <&hsp_gpr_mmrst3 3>, <&hsp_gpr_mmrst0 23>;
 			reset-names = "torrent_reset", "torrent_apb";
 			clocks = <&refclk100mhz>;
 			clock-names = "refclk";
@@ -1893,11 +1959,21 @@
 			#size-cells = <0>;
 			status = "disabled";
 
-			hsp_usb1_phy10g_phy0: phy@0 {
+			hsp_usb1_phy10g_l0: phy@0 {
 				reg = <0>;
-				resets = <&hsp_gpr_mmrst3 3>;
+				resets = <&hsp_gpr_mmrst0 24>;
 				#phy-cells = <0>;
 				cdns,phy-type = <PHY_TYPE_USB3>;
+				cdns,num-lanes = <1>;
+				status = "disabled";
+			};
+
+			hsp_usb1_phy10g_l1: phy@1 {
+				reg = <1>;
+				resets = <&hsp_gpr_mmrst0 25>;
+				#phy-cells = <0>;
+				cdns,phy-type = <PHY_TYPE_USB3>;
+				cdns,num-lanes = <1>;
 				status = "disabled";
 			};
 		};
@@ -2084,7 +2160,13 @@
 			      <0x00 0x34300000 0x0 0x800>,
 			      <0x00 0x34380000 0x0 0x800>,
 			      <0x00 0x32540000 0x0 0x100>,
+#if USE_BL1000_PCIE0_SS_MODE == 3
 			      <0x47 0xf0000000 0x0 0x10000000>;
+#elif USE_BL1000_PCIE0_SS_MODE == 2 || USE_BL1000_PCIE0_SS_MODE == 1
+			      <0x4f 0xf0000000 0x0 0x10000000>;
+#else /* USE_BL1000_PCIE0_SS_MODE == 0 */
+			      <0x5f 0xf0000000 0x0 0x10000000>;
+#endif
 			reg-names = "dbi", "atu", "dma", "apb", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
@@ -2100,11 +2182,22 @@
 			interrupt-names = "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7",
 					  "intr";
+			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x81000000 0x00 0x00000000 0x47 0xe0000000 0x0 0x100000>,
-				 <0x82000000 0x00 0x40000000 0x47 0x40000000 0x0 0x40000000>,
-				 <0x82000000 0x40 0x00000000 0x40 0x00000000 0x7 0x40000000>;
+#if USE_BL1000_PCIE0_SS_MODE == 3
+			ranges = <0x81000000 0x00 0x00000000 0x47 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x47 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x40 0x00000000 0x40 0x00000000 0x07 0x40000000>;
+#elif USE_BL1000_PCIE0_SS_MODE == 2 || USE_BL1000_PCIE0_SS_MODE == 1
+			ranges = <0x81000000 0x00 0x00000000 0x4f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x4f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x40 0x00000000 0x40 0x00000000 0x0f 0x40000000>;
+#else /* USE_BL1000_PCIE0_SS_MODE == 0 */
+			ranges = <0x81000000 0x00 0x00000000 0x5f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x5f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x40 0x00000000 0x40 0x00000000 0x1f 0x40000000>;
+#endif
 			num-viewport = <4>;
 			msi-parent = <&its0 0x0>;
 			msi-map = <0x0 &its0 0x0 0x10000>;
@@ -2139,20 +2232,31 @@
 			      <0x00 0x34700000 0x0 0x800>,
 			      <0x00 0x34780000 0x0 0x800>,
 			      <0x00 0x32541000 0x0 0x100>,
+#if USE_BL1000_PCIE0_SS_MODE == 3
 			      <0x4f 0xf0000000 0x0 0x10000000>;
+#else /* USE_BL1000_PCIE0_SS_MODE == 2 */
+			      <0x57 0xf0000000 0x0 0x10000000>;
+#endif
 			reg-names = "dbi", "atu", "dma", "apb", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
+			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x81000000 0x00 0x00100000 0x4f 0xe0000000 0x0 0x100000>,
-				 <0x82000000 0x00 0x40000000 0x4f 0x40000000 0x0 0x40000000>,
-				 <0x82000000 0x48 0x00000000 0x48 0x00000000 0x7 0x40000000>;
+#if USE_BL1000_PCIE0_SS_MODE == 3
+			ranges = <0x81000000 0x00 0x00100000 0x4f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x4f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x48 0x00000000 0x48 0x00000000 0x07 0x40000000>;
+#else /* USE_BL1000_PCIE0_SS_MODE == 2 */
+			ranges = <0x81000000 0x00 0x00100000 0x57 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x57 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x50 0x00000000 0x50 0x00000000 0x07 0x40000000>;
+#endif
 			num-viewport = <4>;
-			msi-parent = <&its0 0x10000>;
-			msi-map = <0x0 &its0 0x10000 0x10000>;
+			msi-parent = <&its0 0x0>;
+			msi-map = <0x0 &its0 0x0 0x10000>;
 			status = "disabled";
 		};
 
@@ -2162,20 +2266,31 @@
 			      <0x00 0x34b00000 0x0 0x800>,
 			      <0x00 0x34b80000 0x0 0x800>,
 			      <0x00 0x32542000 0x0 0x100>,
+#if USE_BL1000_PCIE0_SS_MODE == 3
 			      <0x57 0xf0000000 0x0 0x10000000>;
+#else /* USE_BL1000_PCIE0_SS_MODE == 2 */
+			      <0x5f 0xf0000000 0x0 0x10000000>;
+#endif
 			reg-names = "dbi", "atu", "dma", "apb", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
+			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x81000000 0x00 0x00200000 0x57 0xe0000000 0x0 0x100000>,
-				 <0x82000000 0x00 0x40000000 0x57 0x40000000 0x0 0x40000000>,
-				 <0x82000000 0x50 0x00000000 0x50 0x00000000 0x7 0x40000000>;
+#if USE_BL1000_PCIE0_SS_MODE == 3
+			ranges = <0x81000000 0x00 0x00200000 0x57 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x57 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x50 0x00000000 0x50 0x00000000 0x07 0x40000000>;
+#else /* USE_BL1000_PCIE0_SS_MODE == 2 */
+			ranges = <0x81000000 0x00 0x00200000 0x5f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x5f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x58 0x00000000 0x58 0x00000000 0x07 0x40000000>;
+#endif
 			num-viewport = <4>;
-			msi-parent = <&its0 0x20000>;
-			msi-map = <0x0 &its0 0x20000 0x10000>;
+			msi-parent = <&its0 0x0>;
+			msi-map = <0x0 &its0 0x0 0x10000>;
 			status = "disabled";
 		};
 
@@ -2191,14 +2306,21 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
+			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x81000000 0x00 0x00300000 0x5f 0xe0000000 0x0 0x100000>,
-				 <0x82000000 0x00 0x40000000 0x5f 0x40000000 0x0 0x40000000>,
-				 <0x82000000 0x58 0x00000000 0x58 0x00000000 0x7 0x40000000>;
+#if USE_BL1000_PCIE0_SS_MODE == 3
+			ranges = <0x81000000 0x00 0x00300000 0x5f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x5f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x58 0x00000000 0x58 0x00000000 0x07 0x40000000>;
+#else /* USE_BL1000_PCIE0_SS_MODE == 1 */
+			ranges = <0x81000000 0x00 0x00300000 0x5f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x5f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x50 0x00000000 0x50 0x00000000 0x0f 0x40000000>;
+#endif
 			num-viewport = <4>;
-			msi-parent = <&its0 0x30000>;
-			msi-map = <0x0 &its0 0x30000 0x10000>;
+			msi-parent = <&its0 0x0>;
+			msi-map = <0x0 &its0 0x0 0x10000>;
 			status = "disabled";
 		};
 
@@ -2208,7 +2330,13 @@
 			      <0x00 0x35300000 0x0 0x800>,
 			      <0x00 0x35380000 0x0 0x800>,
 			      <0x00 0x32740000 0x0 0x100>,
+#if USE_BL1000_PCIE1_SS_MODE == 3
 			      <0x67 0xf0000000 0x0 0x10000000>;
+#elif USE_BL1000_PCIE1_SS_MODE == 2 || USE_BL1000_PCIE1_SS_MODE == 1
+			      <0x6f 0xf0000000 0x0 0x10000000>;
+#else /* USE_BL1000_PCIE1_SS_MODE == 0 */
+			      <0x7f 0xf0000000 0x0 0x10000000>;
+#endif
 			reg-names = "dbi", "atu", "dma", "apb", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
@@ -2224,11 +2352,22 @@
 			interrupt-names = "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7",
 					  "intr";
+			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x81000000 0x00 0x00400000 0x67 0xe0000000 0x0 0x100000>,
-				 <0x82000000 0x00 0x40000000 0x67 0x40000000 0x0 0x40000000>,
-				 <0x82000000 0x60 0x00000000 0x60 0x00000000 0x7 0x40000000>;
+#if USE_BL1000_PCIE1_SS_MODE == 3
+			ranges = <0x81000000 0x00 0x00400000 0x67 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x67 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x60 0x00000000 0x60 0x00000000 0x07 0x40000000>;
+#elif USE_BL1000_PCIE1_SS_MODE == 2 || USE_BL1000_PCIE1_SS_MODE == 1
+			ranges = <0x81000000 0x00 0x00400000 0x6f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x6f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x60 0x00000000 0x60 0x00000000 0x0f 0x40000000>;
+#else /* USE_BL1000_PCIE1_SS_MODE == 0 */
+			ranges = <0x81000000 0x00 0x00400000 0x7f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x7f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x60 0x00000000 0x60 0x00000000 0x1f 0x40000000>;
+#endif
 			num-viewport = <4>;
 			msi-parent = <&its1 0x0>;
 			msi-map = <0x0 &its1 0x0 0x10000>;
@@ -2263,20 +2402,31 @@
 			      <0x00 0x35700000 0x0 0x800>,
 			      <0x00 0x35780000 0x0 0x800>,
 			      <0x00 0x32741000 0x0 0x100>,
+#if USE_BL1000_PCIE1_SS_MODE == 3
 			      <0x6f 0xf0000000 0x0 0x10000000>;
+#else /* USE_BL1000_PCIE1_SS_MODE == 2 */
+			      <0x77 0xf0000000 0x0 0x10000000>;
+#endif
 			reg-names = "dbi", "atu", "dma", "apb", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
+			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x81000000 0x00 0x00500000 0x6f 0xe0000000 0x0 0x100000>,
-				 <0x82000000 0x00 0x40000000 0x6f 0x40000000 0x0 0x40000000>,
-				 <0x82000000 0x68 0x00000000 0x68 0x00000000 0x7 0x40000000>;
+#if USE_BL1000_PCIE1_SS_MODE == 3
+			ranges = <0x81000000 0x00 0x00500000 0x6f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x6f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x68 0x00000000 0x68 0x00000000 0x07 0x40000000>;
+#else /* USE_BL1000_PCIE1_SS_MODE == 2 */
+			ranges = <0x81000000 0x00 0x00500000 0x77 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x77 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x70 0x00000000 0x70 0x00000000 0x07 0x40000000>;
+#endif
 			num-viewport = <4>;
-			msi-parent = <&its1 0x10000>;
-			msi-map = <0x0 &its1 0x10000 0x10000>;
+			msi-parent = <&its1 0x0>;
+			msi-map = <0x0 &its1 0x0 0x10000>;
 			status = "disabled";
 		};
 
@@ -2286,20 +2436,31 @@
 			      <0x00 0x35b00000 0x0 0x800>,
 			      <0x00 0x35b80000 0x0 0x800>,
 			      <0x00 0x32742000 0x0 0x100>,
+#if USE_BL1000_PCIE1_SS_MODE == 3
 			      <0x77 0xf0000000 0x0 0x10000000>;
+#else /* USE_BL1000_PCIE1_SS_MODE == 2 */
+			      <0x7f 0xf0000000 0x0 0x10000000>;
+#endif
 			reg-names = "dbi", "atu", "dma", "apb", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
+			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x81000000 0x00 0x00600000 0x77 0xe0000000 0x0 0x100000>,
-				 <0x82000000 0x00 0x40000000 0x77 0x40000000 0x0 0x40000000>,
-				 <0x82000000 0x70 0x00000000 0x70 0x00000000 0x7 0x40000000>;
+#if USE_BL1000_PCIE1_SS_MODE == 3
+			ranges = <0x81000000 0x00 0x00600000 0x77 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x77 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x70 0x00000000 0x70 0x00000000 0x07 0x40000000>;
+#else /* USE_BL1000_PCIE1_SS_MODE == 2 */
+			ranges = <0x81000000 0x00 0x00600000 0x7f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x7f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x78 0x00000000 0x78 0x00000000 0x07 0x40000000>;
+#endif
 			num-viewport = <4>;
-			msi-parent = <&its1 0x20000>;
-			msi-map = <0x0 &its1 0x20000 0x10000>;
+			msi-parent = <&its1 0x0>;
+			msi-map = <0x0 &its1 0x0 0x10000>;
 			status = "disabled";
 		};
 
@@ -2315,14 +2476,21 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
+			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			ranges = <0x81000000 0x00 0x00700000 0x7f 0xe0000000 0x0 0x100000>,
-				 <0x82000000 0x00 0x40000000 0x7f 0x40000000 0x0 0x40000000>,
-				 <0x82000000 0x78 0x00000000 0x78 0x00000000 0x7 0x40000000>;
+#if USE_BL1000_PCIE1_SS_MODE == 3
+			ranges = <0x81000000 0x00 0x00700000 0x7f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x7f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x78 0x00000000 0x78 0x00000000 0x07 0x40000000>;
+#else /* USE_BL1000_PCIE1_SS_MODE == 1 */
+			ranges = <0x81000000 0x00 0x00700000 0x7f 0xe0000000 0x00 0x100000>,
+				 <0x82000000 0x00 0x40000000 0x7f 0x40000000 0x00 0x40000000>,
+				 <0x82000000 0x70 0x00000000 0x70 0x00000000 0x0f 0x40000000>;
+#endif
 			num-viewport = <4>;
-			msi-parent = <&its1 0x30000>;
-			msi-map = <0x0 &its1 0x30000 0x10000>;
+			msi-parent = <&its1 0x0>;
+			msi-map = <0x0 &its1 0x0 0x10000>;
 			status = "disabled";
 		};
 
@@ -2379,7 +2547,7 @@
 			interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 258 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "dp0_irq", "dptx_irq";
-			clocks = <&ehsp_cmu1_pll>,
+			clocks = <&ehsp_cmu1_clkch 0>,
 				 <&ehsp_cmu0_clkch 0>;
 			clock-names = "dp0_pclk",
 				      "s_axi_aclk";

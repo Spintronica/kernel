@@ -448,6 +448,9 @@ int mmc_switch_status(struct mmc_card *card, bool crc_err_fatal)
 	u32 status;
 	int err;
 
+	if (card->quirks & MMC_QUIRK_NO_SWITCH_STATUS)
+		return 0;
+
 	err = mmc_send_status(card, &status);
 	if (!crc_err_fatal && err == -EILSEQ)
 		return 0;

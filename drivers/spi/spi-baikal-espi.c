@@ -31,11 +31,11 @@ struct espi_data {
 	int			irq;
 	void __iomem		*regs;
 	struct clk		*clk;
+	bool setup_done;
 	/* transfer */
-	u32			rxlen;
-	u32			txlen;
-	u8			*tx;
+	const u8		*tx;
 	u8			*rx;
+	unsigned		len;
 };
 
 #define ESPI_CR1	0x00 /* control 1 */
@@ -157,14 +157,9 @@ static void espi_enable_rx(struct espi_data *priv)
 static void espi_enable_tx(struct espi_data *priv)
 {
 	union espi_cr2 cr2;
-	int cnt = espi_readl(priv, ESPI_TX_FBCAR);
-
 	cr2.val = espi_readl(priv, ESPI_CR2);
-
-	if (cnt && cr2.bits.mte != ESPI_CR2_MTE_TX_ENABLE) {
-		cr2.bits.mte = ESPI_CR2_MTE_TX_ENABLE;
-		espi_writel(priv, ESPI_CR2, cr2.val);
-	}
+	cr2.bits.mte = ESPI_CR2_MTE_TX_ENABLE;
+	espi_writel(priv, ESPI_CR2, cr2.val);
 }
 
 static void espi_set_cs(struct spi_device *spi, bool enable)
@@ -181,15 +176,13 @@ static void espi_set_cs(struct spi_device *spi, bool enable)
 static void espi_writer(struct espi_data *priv)
 {
 	u8 data;
-	u32 have_tx = espi_readl(priv, ESPI_TX_FBCAR);
-	u32 have_rx = espi_readl(priv, ESPI_RX_FBCAR);
-	u32 free = ESPI_FIFO_LEN - have_tx - have_rx;
-	u32 cnt = min(free, priv->txlen);
+	u32 free = ESPI_FIFO_LEN - espi_readl(priv, ESPI_TX_FBCAR);
+	u32 cnt = min(free, priv->len);
 
 	if (!cnt)
 		return;
 
-	priv->txlen -= cnt;
+	priv->len -= cnt;
 
 	/* fifo */
 	while (cnt--) {
@@ -200,20 +193,18 @@ static void espi_writer(struct espi_data *priv)
 
 		espi_writel(priv, ESPI_TX_FIFO, data);
 	}
-
-	espi_enable_tx(priv);
 }
 
 static void espi_reader(struct espi_data *priv)
 {
 	u8 data;
 	u32 have = espi_readl(priv, ESPI_RX_FBCAR);
-	u32 cnt = min(have, priv->rxlen);
+	u32 cnt = min(have, priv->len);
 
 	if (!cnt)
 		return;
 
-	priv->rxlen -= cnt;
+	priv->len -= cnt;
 
 	/* fifo */
 	while (cnt--) {
@@ -223,6 +214,7 @@ static void espi_reader(struct espi_data *priv)
 	}
 }
 
+#if 0
 static irqreturn_t espi_irq_handler(int irq, void *dev)
 {
 	union espi_irq status;
@@ -369,12 +361,121 @@ static int espi_transfer_one(struct spi_controller *master,
 
 	return 1;
 }
+#endif
+
+#ifdef VERBOSE_DEBUG
+static void espi_print_transfer(struct spi_transfer *t)
+{
+	char *buf;
+	char dir;
+	int len = t->len;
+
+	if (t->tx_buf) {dir='>'; buf = (void*)t->tx_buf;}
+	if (t->rx_buf) {dir='<'; buf = (void*)t->rx_buf;}
+
+	while (len) {
+		int part = min(32,len);
+		printk(KERN_ERR "    %c %*ph\n", dir, part, buf);
+		buf += part;
+		len -= part;
+	}
+}
+#endif
+
+static size_t espi_max_transfer_size (struct spi_device *spi)
+{
+	return ESPI_FIFO_LEN;
+}
+
+static size_t espi_max_message_size (struct spi_device *spi)
+{
+	return ESPI_FIFO_LEN;
+}
+
+static int espi_transfer_one_message(struct spi_controller *host, struct spi_message *m)
+{
+
+	struct spi_transfer *t;
+	struct spi_device *spi = m->spi;
+	struct espi_data *priv = spi_controller_get_devdata(host);
+	struct spi_transfer *first = list_first_entry(&m->transfers, struct spi_transfer, transfer_list);
+	unsigned long long ms;
+
+	/* clk */
+	if (first->speed_hz && (first->speed_hz < spi->max_speed_hz)) {
+		clk_set_rate(priv->clk, first->speed_hz);
+	}
+
+	/* cs = 0 */
+	espi_set_cs(spi, 0);
+	if (spi_get_csgpiod(spi, 0)) {
+		gpiod_set_value(spi_get_csgpiod(spi, 0), 0);
+	}
+
+	/* len */
+	list_for_each_entry(t, &m->transfers, transfer_list) {
+		m->actual_length += t->len;
+	}
+
+	/* clean */
+	m->status = -EIO;
+
+	/* tx */
+	list_for_each_entry(t, &m->transfers, transfer_list) {
+		priv->tx = t->tx_buf;
+		priv->rx = 0;
+		priv->len = t->len;
+		while (priv->len) {
+			espi_writer(priv);
+		}
+	}
+	espi_enable_tx(priv);
+
+	/* wait */
+	ms = 8LL * MSEC_PER_SEC * m->actual_length;
+	do_div(ms, clk_get_rate(priv->clk));
+	if (ms == 0)
+		ms = 1;
+	mdelay(ms);
+
+	/* rx */
+	list_for_each_entry(t, &m->transfers, transfer_list) {
+		priv->rx = t->rx_buf;
+		priv->tx = 0;
+		priv->len = t->len;
+		while (priv->len) {
+			espi_reader(priv);
+		}
+	}
+
+#ifdef VERBOSE_DEBUG
+	/* debug */
+	list_for_each_entry(t, &m->transfers, transfer_list) {
+		espi_print_transfer(t);
+	}
+#endif
+
+	/* finalize */
+	m->status = 0;
+	spi_finalize_current_message(host);
+
+	/* cs = 1 */
+	// espi_set_cs(spi, 1); // auto
+	if (spi_get_csgpiod(spi, 0)) {
+		gpiod_set_value(spi_get_csgpiod(spi, 0), 1);
+	}
+
+	return 0;
+}
 
 static int espi_setup(struct spi_device *spi)
 {
 	struct espi_data *priv = spi_controller_get_devdata(spi->controller);
 	union espi_cr1 cr1;
 	union espi_cr2 cr2;
+
+	if (priv->setup_done)
+		return 0;
 
 	espi_reset(priv);
 
@@ -400,6 +501,7 @@ static int espi_setup(struct spi_device *spi)
 	cr2.bits.sri = ESPI_CR2_SRI_FIRST_RESIEV;
 	cr2.bits.mlb = spi->mode & SPI_LSB_FIRST ? ESPI_CR2_MLB_LSB :
 						   ESPI_CR2_MLB_MSB;
+	cr2.bits.sso = 0;
 	espi_writel(priv, ESPI_CR2, cr2.val);
 
 	/* threshold */
@@ -410,10 +512,13 @@ static int espi_setup(struct spi_device *spi)
 	espi_enable_rx(priv);
 
 	/* clk */
-	if (spi->max_speed_hz != espi_get_rate(priv)) {
-		espi_set_rate(priv, spi->max_speed_hz);
-		spi->max_speed_hz = espi_get_rate(priv);
+	if (spi->max_speed_hz) {
+		clk_set_rate(priv->clk, spi->max_speed_hz);
+		if (spi->max_speed_hz != clk_get_rate(priv->clk)) {
+			return -1;
+		}
 	}
+	priv->setup_done = true;
 
 	return 0;
 }
@@ -471,25 +576,29 @@ static int espi_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	priv->master = master;
+	master->max_transfer_size = espi_max_transfer_size;
+	master->max_message_size = espi_max_message_size;
+	master->min_speed_hz = 5*1000*1000;
+	master->max_speed_hz = 200*1000*1000;
+	master->transfer_one_message = espi_transfer_one_message;
 	master->num_chipselect = 8;
 	master->use_gpio_descriptors = true;
 	master->mode_bits = SPI_CPHA | SPI_CPOL;
 	master->dev.of_node = dev->of_node;
 	master->dev.fwnode = dev->fwnode;
-	master->transfer_one = espi_transfer_one;
-	master->set_cs = espi_set_cs;
 	master->setup = espi_setup;
 	master->bus_num = of_alias_get_id(master->dev.of_node, "spi");
 	master->dev.of_node = dev->of_node;
 	master->dev.fwnode = dev->fwnode;
-	master->flags = SPI_CONTROLLER_GPIO_SS;
 
+#if 0
 	err = devm_request_irq(dev, priv->irq, espi_irq_handler,
 			       IRQF_SHARED, pdev->name, master);
 	if (err) {
 		dev_err(&pdev->dev, "unable to request irq %d\n", priv->irq);
 		return err;
 	}
+#endif
 
 	spi_controller_set_devdata(master, priv);
 

@@ -7,17 +7,11 @@
  */
 
 #include <linux/firmware/baikal/baikal-smc.h>
-#include <linux/of_device.h>
-#include <linux/of_graph.h>
 #include <linux/platform_device.h>
 
-#include <drm/drm_atomic_helper.h>
 #include <drm/drm_debugfs.h>
 #include <drm/drm_drv.h>
-#include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_fbdev_dma.h>
-#include <drm/drm_fb_dma_helper.h>
-#include <drm/drm_fb_helper.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
 
@@ -25,23 +19,13 @@
 #include "baikal_bl1000_drm.h"
 #include "baikal_bl1000_vdu.h"
 
-static void set_cpuectlr2(void *info)
-{
-	u64 val = *((u64 *) info);
-	u32 reg = sys_reg(3, 0, 15, 1, 5);
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(BAIKAL_SMC_SYSREG_WRITE, reg, val, 0, 0, 0, 0, 0, &res);
-}
-
 static int baikal_vdu_l1000_probe(struct platform_device *pdev, struct drm_device *drm, struct baikal_vdu_crossbar *crossbar)
 {
 	struct device *dev = &pdev->dev;
 	struct baikal_vdu_private *dp0 = &crossbar->vdu[0];
 	struct baikal_vdu_private *dp1 = &crossbar->vdu[1];
-	uint32_t ectl2_val = CPUECTRL2_VALUE;
 	struct drm_mode_config *mode_config;
-	int cpu, ret;
+	int ret;
 
 	dp0->ops = crossbar->ops;
 	dp0->drm = &crossbar->drm;
@@ -101,9 +85,6 @@ static int baikal_vdu_l1000_probe(struct platform_device *pdev, struct drm_devic
 					drm->primary->debugfs_root, drm->primary);
 		}
 #endif
-		for_each_online_cpu(cpu) {
-			smp_call_function_single(cpu, set_cpuectlr2, &ectl2_val, true);
-		}
 
 		return 0;
 	} else {
@@ -143,71 +124,6 @@ static void baikal_vdu_l1000_post_allocate_resources(struct baikal_vdu_private *
 	/* TODO */
 }
 
-static const struct baikal_vdu_drm_format baikal_vdu_pu_ctrl_table[] = {
-	{pipe_pu_ctrl_reg(1, 0, 0, 4), DRM_FORMAT_RGB565},
-	{pipe_pu_ctrl_reg(1, 0, 1, 4), DRM_FORMAT_BGR565},
-	{pipe_pu_ctrl_reg(1, 0, 1, 2), DRM_FORMAT_XBGR1555},
-	{pipe_pu_ctrl_reg(1, 1, 1, 2), DRM_FORMAT_ABGR1555},
-	{pipe_pu_ctrl_reg(1, 0, 0, 2), DRM_FORMAT_XRGB1555},
-	{pipe_pu_ctrl_reg(1, 1, 0, 2), DRM_FORMAT_ARGB1555},
-	{pipe_pu_ctrl_reg(2, 0, 1, 0), DRM_FORMAT_XBGR8888},
-	{pipe_pu_ctrl_reg(2, 1, 1, 0), DRM_FORMAT_ABGR8888},
-	{pipe_pu_ctrl_reg(2, 0, 0, 0), DRM_FORMAT_XRGB8888},
-	{pipe_pu_ctrl_reg(2, 1, 0, 0), DRM_FORMAT_ARGB8888},
-};
-
-static void baikal_vdu_l1000_set_pxl_fmt(struct baikal_vdu_private *priv,
-		struct drm_framebuffer *fb)
-{
-	uint32_t pixel_format = fb->format->format;
-	u32 format = DRM_FORMAT_INVALID;
-	int i;
-	u32 reg = 0;
-
-	for (i = 0; i < ARRAY_SIZE(baikal_vdu_pu_ctrl_table); i++) {
-		if (baikal_vdu_pu_ctrl_table[i].format == pixel_format) {
-			format = baikal_vdu_pu_ctrl_table[i].format;
-			reg = baikal_vdu_pu_ctrl_table[i].reg;
-			break;
-		}
-	}
-
-	if (WARN_ON(format == DRM_FORMAT_INVALID))
-		return;
-
-	baikal_vdu_write(priv, PIPE_PU_CTRL(0), reg);
-}
-
-static void baikal_vdu_l1000_primary_plane_atomic_update(struct drm_plane *plane,
-					      struct drm_atomic_state *old_state)
-{
-	struct baikal_vdu_private *priv;
-	struct drm_gem_dma_object *gem;
-	struct drm_plane_state *state = plane->state;
-	struct drm_crtc *crtc = state->crtc;
-	struct drm_framebuffer *fb = state->fb;
-	u16 x_start, x_end, y_start, y_end;
-	/*u8 cpp = fb->format->cpp[0];*/
-
-	if (!fb)
-		return;
-
-	priv = crtc_to_baikal_vdu(crtc);
-	x_start = fb->offsets[0] % fb->pitches[0] - (state->src_x >> 16);
-	x_end = x_start + fb->width - 1;
-	y_start = fb->offsets[0] / fb->pitches[0] - (state->src_y >> 16);
-	y_end = y_start + fb->height - 1;
-	baikal_vdu_write(priv, PIPE_WINDOW_X(0), pipe_window_reg(x_start, x_end));
-	baikal_vdu_write(priv, PIPE_WINDOW_Y(0), pipe_window_reg(y_start, y_end));
-	gem = drm_fb_dma_get_gem_obj(fb, 0);
-	baikal_vdu_write(priv, PIPE_DMA_ADDR_0(0), gem->dma_addr + fb->offsets[0]);
-	baikal_vdu_write(priv, PIPE_DMA_CTRL(0),
-			((PIPE_DMA_CTRL_WORDS(16) & PIPE_DMA_CTRL_WORDS_MASK) | \
-			(PIPE_DMA_CTRL_OUTST(8) & PIPE_DMA_CTRL_OUTST_MASK)));
-	baikal_vdu_l1000_set_pxl_fmt(priv, fb);
-	baikal_vdu_write(priv, PIPE_WINDOW_EN(0), 1);
-}
-
 static const struct baikal_vdu_reg_defs baikal_vdu_l1000_reg_defs[] = {
 	REGDEF(VDU_CONF),
 	REGDEF(INT_CTRL),
@@ -231,10 +147,6 @@ static const struct baikal_vdu_reg_defs baikal_vdu_l1000_reg_defs[] = {
 	REGDEF(PIPE_PU_CTRL(0)),
 };
 
-static const struct drm_plane_helper_funcs baikal_vdu_l1000_primary_plane_helper_funcs = {
-	.atomic_update = baikal_vdu_l1000_primary_plane_atomic_update,
-};
-
 const struct baikal_vdu_ops baikal_vdu_l1000_ops = {
 	.irq = baikal_vdu_l1000_irq,
 	.probe = baikal_vdu_l1000_probe,
@@ -244,7 +156,6 @@ const struct baikal_vdu_ops baikal_vdu_l1000_ops = {
 	//.irq_off = baikal_vdu_l1000_irq_off,
 	.post_allocate_resources = baikal_vdu_l1000_post_allocate_resources,
 	.crtc_create = baikal_vdu_l1000_crtc_create,
-	.primary_plane_helper_funcs = &baikal_vdu_l1000_primary_plane_helper_funcs,
 	.reg_defs = baikal_vdu_l1000_reg_defs,
 	.reg_defs_size = ARRAY_SIZE(baikal_vdu_l1000_reg_defs),
 };

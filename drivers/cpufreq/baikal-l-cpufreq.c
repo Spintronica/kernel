@@ -23,6 +23,23 @@
 
 #define BAIKAL_MAX_COEF		31
 
+#define CPUECTLR2_TXREQ_MIN	(1)	/* 0(1/4-default), 1(1/8), 2(1/16), 3(1/32) */
+#define CPUECTLR2_PF_MODE	(3)	/* 0(0,0), 1(0,1), 2(0,2), 3(0,3-default), 4(1,1) .. 9(3,3) */
+#define CPUECTLR2_F_WINDOW	(3)	/* 0(256-default), 1(64), 2(128), 3(512) */
+#define CPUECTLR2_F_TRH		(1)	/* 0(1/16-default), 1(1/32), 2(1/8), 3(1/4) */
+#define CPUECTLR2_TXREQ_DEC	(0)	/* 0(4-default), 1(8), 2(16), 3(2) */
+#define CPUECTLR2_TXREQ_INC	(3)	/* 0(4-default), 1(8), 2(16), 3(2) */
+#define CPUECTLR2_CBUSY_ON	(1)	/* 0(off-default), 1(on) */
+#define CPUECTLR2_TXREQ_MAX	(0)	/* 0(4/4-default), 1(3/4), 2(2/4), 3(1/4) */
+#define CPUECTLR2_VALUE		((CPUECTLR2_TXREQ_MIN << 15) | \
+				 (CPUECTLR2_PF_MODE << 11) | \
+				 (CPUECTLR2_F_WINDOW << 9) | \
+				 (CPUECTLR2_F_TRH << 7) | \
+				 (CPUECTLR2_TXREQ_DEC << 5) | \
+				 (CPUECTLR2_TXREQ_INC << 3) | \
+				 (CPUECTLR2_CBUSY_ON << 2) | \
+				  CPUECTLR2_TXREQ_MAX);
+
 static u32 baikal_regs[] = {
 	0x388400E0,
 	0x38840148,
@@ -50,6 +67,15 @@ static struct freq_attr *baikal_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
 	NULL,
 };
+
+static void set_cpuectlr2(void *info)
+{
+	u64 val = *((u64 *) info);
+	u32 reg = sys_reg(3, 0, 15, 1, 5);
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(BAIKAL_SMC_SYSREG_WRITE, reg, val, 0, 0, 0, 0, 0, &res);
+}
 
 static int baikal_cpufreq_target_index(struct cpufreq_policy *policy,
 				       unsigned int index)
@@ -247,6 +273,8 @@ static int baikal_cpufreq_early_init(struct device *dev, int cpu)
 	struct private_data *priv;
 	int i, j, ret;
 	unsigned long int val;
+	int enable_cbusy_tuning;
+	uint32_t ectlr2_val = CPUECTLR2_VALUE;
 
 	if (cpu > 4)
 		return 0;
@@ -313,6 +341,16 @@ static int baikal_cpufreq_early_init(struct device *dev, int cpu)
 
 	if (!alloc_cpumask_var(&priv->cpumask, GFP_KERNEL))
 		return -ENOMEM;
+
+	ret = device_property_read_u32(priv->cpu_dev, "baikal,enable-cbusy-tuning",
+			       &enable_cbusy_tuning);
+	if (ret)
+		enable_cbusy_tuning = 0;
+
+	if (enable_cbusy_tuning) {
+		smp_call_function_single(cpu, set_cpuectlr2, &ectlr2_val, true);
+		dev_info(priv->cpu_dev, "CBUSY tuning enabled");
+	}
 
 	cpumask_set_cpu(cpu, priv->cpumask);
 	spin_lock_init(&priv->lock);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Device tree source for Baikal Electronics DBL v1.0 board
- * Copyright (C) 2025 Baikal Electronics, JSC
+ * Copyright (C) 2025-2026 Baikal Electronics, JSC
  */
 
 /dts-v1/;
@@ -14,6 +14,23 @@
 
 	aliases {
 		ethernet0 = &sc_gmac;
+	};
+
+	cpus {
+		baikal,demand-qos = <12>;
+		baikal,prefetch-qos = <10>;
+		cpu@0 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+		cpu@100 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+		cpu@200 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+		cpu@300 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
 	};
 
 	chosen { };
@@ -53,7 +70,7 @@
     defined(USE_EXPBOARD_DBL_UDC) || \
     defined(USE_EXPBOARD_DBL_LTP) || \
     defined(USE_EXPBOARD_DBL_UMC)
-	sc_sound_24M: sgtl5000-clock {
+	sc_sound_24mhz: sgtl5000-clock {
 		/* OT322524MJBA4SL */
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -193,12 +210,15 @@
 
 &hsp_vdec {
 	status = "okay";
+	baikal,arqos = <14>;
+	baikal,awqos = <14>;
 };
 
 #if defined(USE_EDP_PANEL)
 &hsp_vdu {
 	status = "okay";
-	dp-lanes = <4>;
+	baikal,dp-lanes = <4>;
+	baikal,arqos = <13>;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -347,11 +367,19 @@
 /****************************************************/
 /*                   DBL-PL1 v1.0                   */
 /****************************************************/
+&hsp_usb1_phy20_l0 {
+	status = "okay";
+};
+
+&hsp_usb1_phy20_l1 {
+	status = "okay";
+};
+
 &hsp_usb1_l0 { /* Connected to USB B0 receptacle */
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
-	phys = <&hsp_usb1_phy10g_phy0>;
+	phys = <&hsp_usb1_phy10g_l0>;
 	phy-names = "cdns3,usb3-phy";
 };
 
@@ -359,7 +387,7 @@
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
-	phys = <&hsp_usb1_phy10g_phy0>;
+	phys = <&hsp_usb1_phy10g_l1>;
 	phy-names = "cdns3,usb3-phy";
 };
 
@@ -367,9 +395,12 @@
 	status = "okay";
 };
 
-&hsp_usb1_phy10g_phy0 {
+&hsp_usb1_phy10g_l0 {
 	status = "okay";
-	cdns,num-lanes = <2>;
+};
+
+&hsp_usb1_phy10g_l1 {
+	status = "okay";
 };
 
 &sc_i2c2 {
@@ -392,7 +423,7 @@
 				compatible = "fsl,sgtl5000";
 				reg = <0xa>;
 				#sound-dai-cells = <0>;
-				clocks = <&sc_sound_24M>;
+				clocks = <&sc_sound_24mhz>;
 				micbias-resistor-k-ohms = <2>;
 				micbias-voltage-m-volts = <3000>;
 				VDDA-supply = <&reg_3v3>;
@@ -410,7 +441,7 @@
 				compatible = "fsl,sgtl5000";
 				reg = <0xa>;
 				#sound-dai-cells = <0>;
-				clocks = <&sc_sound_24M>;
+				clocks = <&sc_sound_24mhz>;
 				micbias-resistor-k-ohms = <2>;
 				micbias-voltage-m-volts = <3000>;
 				VDDA-supply = <&reg_3v3>;
@@ -460,7 +491,7 @@
 	};
 };
 
-&sc_uart3 { /* Connected to HSP-UART3 via DBL-PL2 */
+&sc_uart3 { /* Connected to HSP.UART3 via DBL-PL2 */
 	status = "okay";
 	pinctrl = <&sc_lsp_pin14_uart3_rxd>,
 		  <&sc_lsp_pin15_uart3_txd>;
@@ -476,7 +507,8 @@
 
 &ehsp_vdu {
 	status = "okay";
-	dp-lanes = <4>;
+	baikal,dp-lanes = <4>;
+	baikal,arqos = <13>;
 };
 
 &hsp_usb1_l0 {
@@ -535,7 +567,7 @@
 				compatible = "fsl,sgtl5000";
 				reg = <0xa>;
 				#sound-dai-cells = <0>;
-				clocks = <&sc_sound_24M>;
+				clocks = <&sc_sound_24mhz>;
 				micbias-resistor-k-ohms = <2>;
 				micbias-voltage-m-volts = <3000>;
 				VDDA-supply = <&reg_3v3>;
@@ -553,7 +585,7 @@
 				compatible = "fsl,sgtl5000";
 				reg = <0xa>;
 				#sound-dai-cells = <0>;
-				clocks = <&sc_sound_24M>;
+				clocks = <&sc_sound_24mhz>;
 				micbias-resistor-k-ohms = <2>;
 				micbias-voltage-m-volts = <3000>;
 				VDDA-supply = <&reg_3v3>;
@@ -622,7 +654,7 @@
 		compatible = "fsl,sgtl5000";
 		reg = <0xa>;
 		#sound-dai-cells = <0>;
-		clocks = <&sc_sound_24M>;
+		clocks = <&sc_sound_24mhz>;
 		micbias-resistor-k-ohms = <2>;
 		micbias-voltage-m-volts = <3000>;
 		VDDA-supply = <&reg_3v3>;
@@ -694,42 +726,42 @@
 };
 
 &hsp_uart0 { /* Connected to XP1 */
-#if 0 /* TODO */
 	status = "okay";
-#endif
 	pinctrl = <&hsp_lsp_pin8_uart0_rxd>,
 		  <&hsp_lsp_pin9_uart0_txd>;
 };
 
 &hsp_uart1 { /* Connected to XP1 */
-#if 0 /* TODO */
 	status = "okay";
-#endif
 	pinctrl = <&hsp_lsp_pin10_uart1_rxd>,
 		  <&hsp_lsp_pin11_uart1_txd>;
 };
 
 &hsp_uart2 { /* Connected to USB-UART bridge (CP2103) */
-#if 0 /* TODO */
 	status = "okay";
-#endif
 	pinctrl = <&hsp_lsp_pin12_uart2_rxd>,
 		  <&hsp_lsp_pin13_uart2_txd>;
 };
 
-&hsp_uart3 { /* Connected to SC-UART3 via DBL-PL1 */
-#if 0 /* TODO */
+&hsp_uart3 { /* Connected to SC.UART3 via DBL-PL1 */
 	status = "okay";
-#endif
 	pinctrl = <&hsp_lsp_pin14_uart3_rxd>,
 		  <&hsp_lsp_pin15_uart3_txd>;
+};
+
+&hsp_usb0_phy20_l0 {
+	status = "okay";
+};
+
+&hsp_usb0_phy20_l1 {
+	status = "okay";
 };
 
 &hsp_usb0_l0 { /* Connected to USB A0 receptacle */
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
-	phys = <&hsp_usb0_phy10g_phy0>;
+	phys = <&hsp_usb0_phy10g_l0>;
 	phy-names = "cdns3,usb3-phy";
 };
 
@@ -737,7 +769,7 @@
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
-	phys = <&hsp_usb0_phy10g_phy0>;
+	phys = <&hsp_usb0_phy10g_l1>;
 	phy-names = "cdns3,usb3-phy";
 };
 
@@ -745,9 +777,12 @@
 	status = "okay";
 };
 
-&hsp_usb0_phy10g_phy0 {
+&hsp_usb0_phy10g_l0 {
 	status = "okay";
-	cdns,num-lanes = <2>;
+};
+
+&hsp_usb0_phy10g_l1 {
+	status = "okay";
 };
 
 &sc_i2c3 {
@@ -840,7 +875,7 @@
 		compatible = "fsl,sgtl5000";
 		reg = <0xa>;
 		#sound-dai-cells = <0>;
-		clocks = <&sc_sound_24M>;
+		clocks = <&sc_sound_24mhz>;
 		micbias-resistor-k-ohms = <2>;
 		micbias-voltage-m-volts = <3000>;
 		VDDA-supply = <&reg_3v3>;

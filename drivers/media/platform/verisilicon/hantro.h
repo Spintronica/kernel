@@ -414,8 +414,8 @@ static __always_inline struct hantro_ctx *fh_to_ctx(struct v4l2_fh *fh)
 #define BAIKAL_VDPU_REG_CMDBUF_ID		0x68
 
 // TODO
-#define BAIKAL_VDPU_CMDBUF_MAX_RETRIES	100
-#define BAIKAL_VDPU_CMDBUF_DELAY_MS	1
+#define BAIKAL_VDPU_CMDBUF_MAX_RETRIES	250
+#define BAIKAL_VDPU_CMDBUF_DELAY_NS	100
 
 #define BAIKAL_VDPU_REGS_OFFSET	0x800
 
@@ -450,7 +450,7 @@ static __always_inline void baikal_vdpu_write(struct hantro_dev *vpu, u32 val, u
 				break;
 			}
 
-			mdelay(BAIKAL_VDPU_CMDBUF_DELAY_MS);
+			ndelay(BAIKAL_VDPU_CMDBUF_DELAY_NS);
 		}
 
 		if (val & BIT(0))
@@ -484,7 +484,7 @@ static __always_inline u32 baikal_vdpu_read(struct hantro_dev *vpu, u32 reg)
 				return readl(vpu->priv + BAIKAL_VDPU_READ_CMDBUF_OFFSET + 0x18);
 			}
 
-			mdelay(BAIKAL_VDPU_CMDBUF_DELAY_MS);
+			ndelay(BAIKAL_VDPU_CMDBUF_DELAY_NS);
 		}
 	}
 
