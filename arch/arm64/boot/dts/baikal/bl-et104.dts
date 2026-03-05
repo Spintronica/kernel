@@ -16,7 +16,32 @@
 		fru = &fru;
 	};
 
+	cpus {
+		baikal,demand-qos = <12>;
+		baikal,prefetch-qos = <10>;
+		cpu@0 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+		cpu@100 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+		cpu@200 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+		cpu@300 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+	};
+
 	chosen { };
+
+	rfkill {
+		compatible = "rfkill-gpio";
+		label = "rfkill-m2e";
+		radio-type = "wlan";
+		shutdown-gpios = <&porte 5 GPIO_ACTIVE_HIGH>;
+//		reset-gpios = <&porte 7 GPIO_ACTIVE_HIGH>;
+	};
 
 };
 
@@ -24,6 +49,7 @@
 	status = "okay";
 	num-lanes = <4>;
 	max-link-speed = <3>;
+	pinctrl = <&sc_emmc_mux_gpio1>;
 	reset-gpios = <&porte 1 GPIO_ACTIVE_LOW>;
 };
 
@@ -42,15 +68,15 @@
 };
 
 &ehsp_pcie1_p2 {
-	status = "okay";
+//	status = "okay";
 	num-lanes = <1>;
 	max-link-speed = <3>;
 	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
 };
 
 &ehsp_pcie1_p3 {
-//	status = "okay";
-	num-lanes = <1>;
+	status = "okay";
+	num-lanes = <2>;
 	max-link-speed = <3>;
 	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
 };
@@ -77,11 +103,14 @@
 
 &hsp_vdec {
 	status = "okay";
+	baikal,arqos = <14>;
+	baikal,awqos = <14>;
 };
 
 &hsp_vdu {
 	status = "okay";
-	dp-lanes = <4>;
+	baikal,dp-lanes = <4>;
+	baikal,arqos = <13>;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -107,15 +136,14 @@
 
 &sc_gmac {
 	status = "okay";
-	pinctrl = <&sc_gmac_sdio_bit0_mode1>;//,//; //,
-//		  <&hsp_lsp_pin12_gpio32>;
-//vvv		  <&sc_lsp_pin1_gpio32>;
+	pinctrl = <&sc_gmac_sdio_bit0_mode1>,
+		  <&sc_emmc_mux_gpio2>;
 
 	phy-handle = <&ethphy>;
 	phy-mode = "rgmii-rxid";
 
 	snps,reset-gpios = <&porte 12 GPIO_ACTIVE_LOW>;
-	reset-delay-us = <10 10200 60000>;
+	snps,reset-delays-us = <10 10200 60000>;
 };
 
 &sc_gmac_sdio_pinctrl {
@@ -150,7 +178,19 @@
 	status = "okay";
 };
 
-&sc_uart2 { /* Connected to USB-UART bridge (CP2105) */
+&sc_emmc_pinctrl {
+	status = "okay";
+};
+
+&sc_emmc_pu_pinctrl {
+	status = "okay";
+};
+
+&sc_emmc_pd_pinctrl {
+	status = "okay";
+};
+
+&sc_uart2 {
 	status = "okay";
 	pinctrl = <&sc_lsp_pin12_uart2_rxd>,
 		  <&sc_lsp_pin13_uart2_txd>;
@@ -176,10 +216,6 @@
 	status = "okay";
 };
 
-/****************************************************/
-/* Expansion boards for daughterboard slot1 (DTBs1) */
-/****************************************************/
-
 &sc_hda {
 	status = "okay";
 	pinctrl = <&sc_lsp_pin14_hda_rst>,
@@ -195,7 +231,8 @@
 
 &ehsp_vdu {
 	status = "okay";
-	dp-lanes = <4>;
+	baikal,dp-lanes = <4>;
+	baikal,arqos = <13>;
 };
 
 &hsp_usb1_l0 {
@@ -226,7 +263,7 @@
 	};
 };
 
-&hsp_usb0_l0 { /* Connected to USB A0 receptacle */
+&hsp_usb0_l0 {
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
@@ -234,7 +271,7 @@
 	phy-names = "cdns3,usb3-phy";
 };
 
-&hsp_usb0_l1 { /* Connected to USB A1 receptacle */
+&hsp_usb0_l1 {
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";

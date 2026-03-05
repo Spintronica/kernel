@@ -5,7 +5,11 @@
 
 /dts-v1/;
 
+#define USE_BL1000_PCIE1_SS_MODE	3
+
 #include "bl1000.dtsi"
+#include <dt-bindings/input/gpio-keys.h>
+#include <dt-bindings/input/linux-event-codes.h>
 
 / {
 	model = "Elpitech ET124";
@@ -14,6 +18,23 @@
 	aliases {
 		ethernet0 = &sc_gmac;
 		fru = &fru;
+	};
+
+	cpus {
+		baikal,demand-qos = <12>;
+		baikal,prefetch-qos = <10>;
+		cpu@0 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+		cpu@100 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+		cpu@200 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
+		cpu@300 {
+			baikal,enable-cbusy-tuning = <1>;
+		};
 	};
 
 	chosen { };
@@ -25,10 +46,29 @@
 		clock-output-names = "uartclk";
 	};
 
+	gpio-keys {
+		compatible = "gpio-keys";
+		pwr {
+			label = "PWR Button";
+			linux,code = <116>;
+			gpios = <&porte 27 GPIO_ACTIVE_LOW>;
+			wakeup-source;
+			wakeup-event-action = <EV_ACT_DEASSERTED>;
+		};
+	};
+
+	rfkill {
+		compatible = "rfkill-gpio";
+		label = "rfkill-m2e";
+		radio-type = "wlan";
+		shutdown-gpios = <&porte 5 GPIO_ACTIVE_HIGH>;
+//		reset-gpios = <&porte 7 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &ehsp_pcie0_p0 {
 	status = "okay";
+	pinctrl = <&sc_emmc_mux_gpio1>;
 	num-lanes = <4>;
 	max-link-speed = <3>;
 	reset-gpios = <&porte 1 GPIO_ACTIVE_LOW>;
@@ -36,13 +76,13 @@
 
 &ehsp_pcie1_p0 {
 	status = "okay";
-	num-lanes = <1>;
+	num-lanes = <4>;
 	max-link-speed = <3>;
-//	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
+	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
 };
 
 &ehsp_pcie1_p1 {
-	status = "okay";
+//	status = "okay";
 	num-lanes = <1>;
 	max-link-speed = <3>;
 	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
@@ -52,34 +92,45 @@
 	status = "okay";
 	num-lanes = <1>;
 	max-link-speed = <3>;
-//	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
+	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
 };
 
 &ehsp_pcie1_p3 {
 	status = "okay";
-	num-lanes = <1>;
-	max-link-speed = <3>;
-	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
+	num-lanes = <2>;
+	max-link-speed = <2>;
+//	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
 };
 
 &hsp_edp_phy {
 	status = "okay";
 };
 
-&hsp_i2c0 { /* Connected to XP18 */
-	status = "okay";
+&hsp_i2c0 {
+//vvv	status = "okay";
 	pinctrl = <&hsp_lsp_pin0_i2c0_scl>,
 		  <&hsp_lsp_pin1_i2c0_sda>;
 };
 
-&hsp_i2c1 { /* Connected to XP18 */
-	status = "okay";
+&hsp_i2c1 {
+//vvv	status = "okay";
 	pinctrl = <&hsp_lsp_pin2_i2c1_scl>,
 		  <&hsp_lsp_pin3_i2c1_sda>;
 };
 
+&hsp_i2c2 {
+//vvv	status = "okay";
+	pinctrl = <&hsp_lsp_pin4_i2c2_scl>,
+		  <&hsp_lsp_pin5_i2c2_sda>;
+
+	eeprom@54 {
+		compatible = "st,m24256";
+		reg = <0x54>;
+	};
+};
+
 &hsp_i2c3 { /* Connected to DIMM SPDs */
-	status = "okay";
+//vvv	status = "okay";
 	pinctrl = <&hsp_lsp_pin6_i2c3_scl>,
 		  <&hsp_lsp_pin7_i2c3_sda>;
 };
@@ -102,11 +153,14 @@
 
 &hsp_vdec {
 	status = "okay";
+	baikal,arqos = <14>;
+	baikal,awqos = <14>;
 };
 
 &hsp_vdu {
 	status = "okay";
-	dp-lanes = <4>;
+	baikal,dp-lanes = <4>;
+	baikal,arqos = <13>;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -123,9 +177,9 @@
 	interrupt-parent = <&porte>;
 	interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
 
-	ethphy: ethernet-phy@1 {
+	ethphy: ethernet-phy@3 {
 		compatible = "ethernet-phy-ieee802.3-c22";
-		reg = <0x1>;
+		reg = <0x3>;
 	};
 };
 
@@ -143,15 +197,14 @@
 
 &sc_gmac {
 	status = "okay";
-	pinctrl = <&sc_gmac_sdio_bit0_mode1>;//,//; //,
-//		  <&hsp_lsp_pin12_gpio32>;
-//vvv		  <&sc_lsp_pin1_gpio32>;
+	pinctrl = <&sc_gmac_sdio_bit0_mode1>,
+		  <&sc_emmc_mux_gpio2>;
 
 	phy-handle = <&ethphy>;
 	phy-mode = "rgmii-rxid";
 
 	snps,reset-gpios = <&porte 12 GPIO_ACTIVE_LOW>;
-	reset-delay-us = <10 10200 60000>;
+	snps,reset-delays-us = <10 10000 50000>;
 };
 
 &sc_gmac_sdio_pinctrl {
@@ -178,7 +231,7 @@
 	status = "okay";
 };
 
-&sc_uart2 { /* Connected to USB-UART bridge (CP2105) */
+&sc_uart2 {
 	status = "okay";
 	pinctrl = <&sc_lsp_pin12_uart2_rxd>,
 		  <&sc_lsp_pin13_uart2_txd>;
@@ -204,10 +257,6 @@
 	status = "okay";
 };
 
-/****************************************************/
-/* Expansion boards for daughterboard slot1 (DTBs1) */
-/****************************************************/
-
 &sc_hda {
 	status = "okay";
 	pinctrl = <&sc_lsp_pin14_hda_rst>,
@@ -215,6 +264,17 @@
 		  <&sc_lsp_pin16_hda_bclk>,
 		  <&sc_lsp_pin17_hda_sdo0>,
 		  <&sc_lsp_pin18_hda_sdi0>;
+	patch-data = "[codec]\n\
+0x111d76d5 0x00000100 0\n\
+[model]\n\
+et124\n\
+[pincfg]\n\
+0x0a 0x0221403f\n\
+0x0b 0x70000010\n\
+0x0c 0x02429020\n\
+0x0d 0x91000050\n\
+0x0e 0x02014021\n\
+0x0f 0x70000041\n";
 };
 
 &ehsp_dp_phy {
@@ -223,19 +283,92 @@
 
 &ehsp_vdu {
 	status = "okay";
-	dp-lanes = <4>;
+	baikal,dp-lanes = <4>;
+	baikal,arqos = <13>;
+};
+
+&hsp_usb1_phy20_l0 {
+	status = "okay";
+};
+
+&hsp_usb1_phy20_l1 {
+	status = "okay";
 };
 
 &hsp_usb1_l0 {
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
+	phys = <&hsp_usb1_phy10g_l0>;
+	phy-names = "cdns3,usb3-phy";
 };
 
 &hsp_usb1_l1 {
-//vvv	status = "okay";
+	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "high-speed";
+	phys = <&hsp_usb1_phy10g_l1>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb1_phy10g {
+	status = "okay";
+};
+
+&hsp_usb1_phy10g_l0 {
+	status = "okay";
+};
+
+&hsp_usb1_phy10g_l1 {
+	status = "okay";
+};
+
+&hsp_uart1 {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin10_uart1_rxd>,
+		  <&hsp_lsp_pin11_uart1_txd>;
+};
+
+&hsp_uart2 {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin12_uart2_rxd>,
+		  <&hsp_lsp_pin13_uart2_txd>;
+};
+
+&hsp_usb0_phy20_l0 {
+	status = "okay";
+};
+
+&hsp_usb0_phy20_l1 {
+	status = "okay";
+};
+
+&hsp_usb0_l0 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&hsp_usb0_phy10g_l0>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb0_l1 {
+	status = "okay";
+	dr_mode = "host";
+	maximum-speed = "super-speed";
+	phys = <&hsp_usb0_phy10g_l1>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb0_phy10g {
+	status = "okay";
+};
+
+&hsp_usb0_phy10g_l0 {
+	status = "okay";
+};
+
+&hsp_usb0_phy10g_l1 {
+	status = "okay";
 };
 
 &sc_i2c0 {
@@ -254,54 +387,6 @@
 	status = "okay";
 	pinctrl = <&sc_lsp_pin4_i2c2_scl>,
 		  <&sc_lsp_pin5_i2c2_sda>;
-};
-
-&hsp_i2c2 {
-	status = "okay";
-	pinctrl = <&hsp_lsp_pin4_i2c2_scl>,
-		  <&hsp_lsp_pin5_i2c2_sda>;
-
-	eeprom@54 {
-		compatible = "st,m24256";
-		reg = <0x54>;
-	};
-};
-
-&hsp_uart1 { /* Connected to XP1 */
-	status = "okay";
-	pinctrl = <&hsp_lsp_pin10_uart1_rxd>,
-		  <&hsp_lsp_pin11_uart1_txd>;
-};
-
-&hsp_uart2 { /* Connected to USB-UART bridge (CP2103) */
-	status = "okay";
-	pinctrl = <&hsp_lsp_pin12_uart2_rxd>,
-		  <&hsp_lsp_pin13_uart2_txd>;
-};
-
-&hsp_usb0_l0 { /* Connected to USB A0 receptacle */
-	status = "okay";
-	dr_mode = "host";
-	maximum-speed = "super-speed";
-	phys = <&hsp_usb0_phy10g_phy0>;
-	phy-names = "cdns3,usb3-phy";
-};
-
-&hsp_usb0_l1 { /* Connected to USB A1 receptacle */
-	status = "okay";
-	dr_mode = "host";
-	maximum-speed = "super-speed";
-	phys = <&hsp_usb0_phy10g_phy0>;
-	phy-names = "cdns3,usb3-phy";
-};
-
-&hsp_usb0_phy10g {
-	status = "okay";
-};
-
-&hsp_usb0_phy10g_phy0 {
-	status = "okay";
-	cdns,num-lanes = <2>;
 };
 
 &sc_i2c3 {
