@@ -267,7 +267,7 @@
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
-	phys = <&hsp_usb0_phy10g_phy0>;
+	phys = <&hsp_usb0_phy10g_l0>;
 	phy-names = "cdns3,usb3-phy";
 };
 
@@ -275,7 +275,7 @@
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
-	phys = <&hsp_usb0_phy10g_phy0>;
+	phys = <&hsp_usb0_phy10g_l1>;
 	phy-names = "cdns3,usb3-phy";
 };
 
@@ -283,9 +283,12 @@
 	status = "okay";
 };
 
-&hsp_usb0_phy10g_phy0 {
+&hsp_usb0_phy10g_l0 {
 	status = "okay";
-	cdns,num-lanes = <2>;
+};
+
+&hsp_usb0_phy10g_l1 {
+	status = "okay";
 };
 
 &sc_i2c3 {
