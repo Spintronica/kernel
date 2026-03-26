@@ -57,11 +57,18 @@
 		};
 	};
 
-	rfkill {
+	rfkill-wlan {
 		compatible = "rfkill-gpio";
-		label = "rfkill-m2e";
+		label = "rfkill-m2e-wlan";
 		radio-type = "wlan";
 		shutdown-gpios = <&porte 5 GPIO_ACTIVE_HIGH>;
+	};
+
+	rfkill-bt {
+		compatible = "rfkill-gpio";
+		label = "rfkill-m2e-bt";
+		radio-type = "bluetooth";
+		shutdown-gpios = <&porte 7 GPIO_ACTIVE_HIGH>;
 	};
 };
 
@@ -77,6 +84,7 @@
 	status = "okay";
 	num-lanes = <4>;
 	max-link-speed = <3>;
+//	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
 	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
 };
 
@@ -96,9 +104,9 @@
 
 &ehsp_pcie1_p3 {
 	status = "okay";
-	num-lanes = <2>;
-	max-link-speed = <2>;
-//	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
+	num-lanes = <1>;
+	max-link-speed = <3>;
+	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
 };
 
 &hsp_edp_phy {
