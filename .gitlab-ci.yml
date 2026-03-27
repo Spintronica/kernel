@@ -25,8 +25,8 @@ variables:
     - rm -f linux-*.deb linux-*.buildinfo linux-*.changes
     - rm -rf ./build ./release
     - mkdir -p release/${CPU_TYPE}
-    - make O=./build ${DEFCONFIG}
-    - make O=./build bindeb-pkg -j $(nproc)
+    - make ARCH=arm64 CROSS_COMPILE=/usr/bin/aarch64-linux-gnu- O=./build -j$(nproc) ${DEFCONFIG}
+    - make ARCH=arm64 CROSS_COMPILE=/usr/bin/aarch64-linux-gnu- O=./build -j$(nproc) bindeb-pkg
     - mv linux-*arm64.deb release/${CPU_TYPE}
   artifacts:
     expire_in: 8 hours

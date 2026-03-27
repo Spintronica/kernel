@@ -1,7 +1,7 @@
 IMAGE := baikal-arm/kernel
 TAG := 1.0
 SRCROOT := /home/ndz/gitlab
-NAME := bookworm-arm64
+NAME := trixie
 
 all: Dockerfile
 	docker image build --build-arg uid=1000 -t $(IMAGE):$(TAG) .
