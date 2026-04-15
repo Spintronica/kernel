@@ -413,7 +413,6 @@ static __always_inline struct hantro_ctx *fh_to_ctx(struct v4l2_fh *fh)
 #define BAIKAL_VDPU_REG_CMDBUF_READY_COUNT	0x60
 #define BAIKAL_VDPU_REG_CMDBUF_ID		0x68
 
-// TODO
 #define BAIKAL_VDPU_CMDBUF_MAX_RETRIES	250
 #define BAIKAL_VDPU_CMDBUF_DELAY_NS	100
 
@@ -438,6 +437,7 @@ static __always_inline void baikal_vdpu_write(struct hantro_dev *vpu, u32 val, u
 
 		writel(val, vpu->priv + BAIKAL_VDPU_IRQ_CMDBUF_OFFSET + 0x4);
 
+		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ADDR_MSB);
 		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ID);
 		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_COUNT);
 		writel(1, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_READY_COUNT);
@@ -472,6 +472,7 @@ static __always_inline u32 baikal_vdpu_read(struct hantro_dev *vpu, u32 reg)
 		writel(3, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_LENGTH);
 		writel(vpu->dma_handle + BAIKAL_VDPU_READ_CMDBUF_OFFSET,
 			vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ADDR_LSB);
+		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ADDR_MSB);
 		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ID);
 		writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_COUNT);
 		writel(1, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_READY_COUNT);

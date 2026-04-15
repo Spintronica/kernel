@@ -76,37 +76,21 @@
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_gpio1>;
 	num-lanes = <4>;
-	max-link-speed = <3>;
 	reset-gpios = <&porte 1 GPIO_ACTIVE_LOW>;
+	ranges = <0x81000000 0x00 0x00000000 0x5f 0xe0000000 0x00 0x100000>,
+		 <0x82000000 0x00 0x40000000 0x5f 0x40000000 0x00 0x40000000>;
 };
 
 &ehsp_pcie1_p0 {
 	status = "okay";
 	num-lanes = <4>;
-	max-link-speed = <3>;
-//	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
 	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
-};
-
-&ehsp_pcie1_p1 {
-//	status = "okay";
-	num-lanes = <1>;
-	max-link-speed = <3>;
-	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
 };
 
 &ehsp_pcie1_p2 {
 	status = "okay";
 	num-lanes = <1>;
-	max-link-speed = <3>;
 	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
-};
-
-&ehsp_pcie1_p3 {
-	status = "okay";
-	num-lanes = <1>;
-	max-link-speed = <3>;
-	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
 };
 
 &hsp_edp_phy {
@@ -126,7 +110,7 @@
 };
 
 &hsp_i2c2 {
-//vvv	status = "okay";
+	status = "okay";
 	pinctrl = <&hsp_lsp_pin4_i2c2_scl>,
 		  <&hsp_lsp_pin5_i2c2_sda>;
 
@@ -137,7 +121,7 @@
 };
 
 &hsp_i2c3 { /* Connected to DIMM SPDs */
-//vvv	status = "okay";
+	status = "okay";
 	pinctrl = <&hsp_lsp_pin6_i2c3_scl>,
 		  <&hsp_lsp_pin7_i2c3_sda>;
 };
@@ -156,6 +140,8 @@
 
 &hsp_mali {
 	status = "okay";
+	baikal,arqos = <10>;
+	baikal,awqos = <10>;
 };
 
 &hsp_vdec {
@@ -167,7 +153,7 @@
 &hsp_vdu {
 	status = "okay";
 	baikal,dp-lanes = <4>;
-	baikal,arqos = <13>;
+	baikal,arqos = <15>;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -294,7 +280,7 @@ et124\n\
 &ehsp_vdu {
 	status = "okay";
 	baikal,dp-lanes = <4>;
-	baikal,arqos = <13>;
+	baikal,arqos = <15>;
 };
 
 &hsp_usb1_phy20_l0 {
@@ -317,7 +303,7 @@ et124\n\
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "high-speed";
-	phys = <&hsp_usb1_phy10g_l1>;
+	phys = <&hsp_usb1_20_l1>;
 	phy-names = "cdns3,usb3-phy";
 };
 

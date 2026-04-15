@@ -784,7 +784,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00000000 (0x##hbase + 0x73f) 0xe0000000 0x00 0x100000>,	\
@@ -844,7 +843,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00100000 (0x##hbase + 0x77f) 0xe0100000 0x00 0x100000>,	\
@@ -893,7 +891,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00200000 (0x##hbase + 0x7bf) 0xe0200000 0x00 0x100000>,	\
@@ -953,7 +950,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00300000 (0x##hbase + 0x7ff) 0xe0300000 0x00 0x100000>,	\
@@ -1002,7 +998,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00400000 (0x##hbase + 0x53f) 0xe0400000 0x00 0x100000>,	\
@@ -1062,7 +1057,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00500000 (0x##hbase + 0x57f) 0xe0500000 0x00 0x100000>,	\
@@ -1111,7 +1105,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00600000 (0x##hbase + 0x43f) 0xe0600000 0x00 0x100000>,	\
@@ -1148,7 +1141,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00700000 (0x##hbase + 0x47f) 0xe0700000 0x00 0x100000>,	\
@@ -1185,7 +1177,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00800000 (0x##hbase + 0x4bf) 0xe0800000 0x00 0x100000>,	\
@@ -1222,7 +1213,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00900000 (0x##hbase + 0x4ff) 0xe0900000 0x00 0x100000>,	\
@@ -1271,7 +1261,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00a00000 (0x##hbase + 0x63f) 0xe0a00000 0x00 0x100000>,	\
@@ -1308,7 +1297,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00b00000 (0x##hbase + 0x67f) 0xe0b00000 0x00 0x100000>,	\
@@ -1345,7 +1333,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00c00000 (0x##hbase + 0x6bf) 0xe0c00000 0x00 0x100000>,	\
@@ -1382,7 +1369,6 @@
 		interrupt-names = "dma0", "dma1", "dma2", "dma3",                                       \
 		                  "dma4", "dma5", "dma6", "dma7",                                       \
 		                  "intr", "msi";							\
-		#interrupt-cells = <1>;									\
 		#address-cells = <3>;									\
 		#size-cells = <2>;									\
 		ranges = <0x81000000 0x00 0x00d00000 (0x##hbase + 0x6ff) 0xe0d00000 0x00 0x100000>,	\

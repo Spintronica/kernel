@@ -787,7 +787,6 @@ static const struct panfrost_compatible bl1000_data = {
 	.num_supplies = ARRAY_SIZE(default_supplies) - 1,
 	.supply_names = default_supplies,
 	.vendor_quirk = panfrost_gpu_bl1000_quirk,
-	.pm_features = BIT(GPU_PM_PWROFF_DIS),
 };
 
 /*

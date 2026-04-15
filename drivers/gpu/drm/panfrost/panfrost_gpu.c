@@ -72,7 +72,6 @@ int panfrost_gpu_soft_reset(struct panfrost_device *pfdev)
 		val, val & GPU_IRQ_RESET_COMPLETED, 10, 10000);
 
 	if (ret) {
-		if (!(pfdev->comp->pm_features & BIT(GPU_PM_PWROFF_DIS)))
 		dev_err(pfdev->dev, "gpu soft reset timed out, attempting hard reset\n");
 
 		gpu_write(pfdev, GPU_CMD, GPU_CMD_HARD_RESET);
@@ -430,10 +429,6 @@ void panfrost_gpu_power_on(struct panfrost_device *pfdev)
 	panfrost_gpu_init_quirks(pfdev);
 	core_mask = panfrost_get_core_mask(pfdev);
 
-	if ((pfdev->comp->pm_features & BIT(GPU_PM_PWROFF_DIS)) &&
-	    gpu_read(pfdev, L2_READY_LO))
-		return;
-
 	gpu_write(pfdev, L2_PWRON_LO, pfdev->features.l2_present & core_mask);
 	ret = readl_relaxed_poll_timeout(pfdev->iomem + L2_READY_LO,
 		val, val == (pfdev->features.l2_present & core_mask),
@@ -460,9 +455,6 @@ void panfrost_gpu_power_off(struct panfrost_device *pfdev)
 {
 	int ret;
 	u32 val;
-
-	if (pfdev->comp->pm_features & BIT(GPU_PM_PWROFF_DIS))
-		return;
 
 	gpu_write(pfdev, SHADER_PWROFF_LO, pfdev->features.shader_present);
 	ret = readl_relaxed_poll_timeout(pfdev->iomem + SHADER_PWRTRANS_LO,

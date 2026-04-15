@@ -198,8 +198,6 @@ static int baikal_vdpu_hw_init(struct hantro_dev *vpu)
 		return -ENOMEM;
 	}
 
-	writel(0, vpu->dec_base + BAIKAL_VDPU_REG_CMDBUF_ADDR_MSB);
-
 	writel(0x099e0808, vpu->priv + BAIKAL_VDPU_CMDBUF_OFFSET);
 
 	writel(0x08010804, vpu->priv + BAIKAL_VDPU_IRQ_CMDBUF_OFFSET);
@@ -324,6 +322,7 @@ static void baikal_vepu_reset(struct hantro_ctx *ctx)
 	vepu_write(vpu, H1_REG_INTERRUPT_DIS_BIT, H1_REG_INTERRUPT);
 	vepu_write(vpu, 0, H1_REG_ENC_CTRL);
 	vepu_write(vpu, 0, H1_REG_AXI_CTRL);
+	vepu_write(vpu, ~H1_REG_INTERRUPT_DIS_BIT, H1_REG_INTERRUPT);
 }
 
 static const struct hantro_codec_ops baikal_vepu_codec_ops[] = {
@@ -358,7 +357,7 @@ static irqreturn_t baikal_vepu_irq(int irq, void *dev_id)
 	state = (status & H1_REG_INTERRUPT_FRAME_RDY) ?
 		VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR;
 
-	vepu_write(vpu, 0, H1_REG_INTERRUPT);
+	vepu_write(vpu, ~H1_REG_INTERRUPT_DIS_BIT, H1_REG_INTERRUPT);
 	vepu_write(vpu, 0, H1_REG_AXI_CTRL);
 
 	hantro_irq_done(vpu, state);

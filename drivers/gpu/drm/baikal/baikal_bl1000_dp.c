@@ -464,7 +464,6 @@ static void baikal_dp_start(struct baikal_dp *dp)
 
 	/* Set MISC0 and SST_SOURCE here */
 	/* TODO refactor */
-	//printk("ENCODER MISC0=0x%x", baikal_dp_read(dp->dp_base, BAIKAL_DP_SRC0_STREAM_MISC0));
 	//baikal_dp_write(dp->dp_base, BAIKAL_DP_SRC0_STREAM_MISC0, 0x1);
 	/* TODO refactor */
 	//baikal_dp_write(dp->dp_base, BAIKAL_DP_SST_SOURCE_SELECT, 0x0);

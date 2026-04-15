@@ -64,39 +64,26 @@
 &ehsp_pcie0_p0 {
 	status = "okay";
 	num-lanes = <4>;
-	max-link-speed = <3>;
-	pinctrl = <&hsp_lsp_pin4_gpio32>; // ???
+	pinctrl = <&hsp_lsp_pin4_gpio32>;
 	reset-gpios = <&portf 4 GPIO_ACTIVE_LOW>;
+	ranges = <0x81000000 0x00 0x00000000 0x5f 0xe0000000 0x00 0x100000>,
+		 <0x82000000 0x00 0x40000000 0x5f 0x40000000 0x00 0x40000000>;
 };
 
 &ehsp_pcie1_p0 {
 	status = "okay";
 	num-lanes = <2>;
-	max-link-speed = <1>;
 	reset-gpios = <&portc 0 GPIO_ACTIVE_LOW>;
-};
-
-&ehsp_pcie1_p1 {
-//	status = "okay";
-	num-lanes = <1>;
-	max-link-speed = <1>;
-//	reset-gpios = <&portf 10 GPIO_ACTIVE_LOW>;
-	reset-gpios = <&portc 0 GPIO_ACTIVE_LOW>; //???
-};
-
-&ehsp_pcie1_p2 {
-	status = "okay";
-	num-lanes = <1>;
-	max-link-speed = <1>;
-	reset-gpios = <&portf 10 GPIO_ACTIVE_LOW>;
 };
 
 &ehsp_pcie1_p3 {
 	status = "okay";
 	num-lanes = <1>;
 	max-link-speed = <1>;
-	pinctrl = <&hsp_lsp_pin10_gpio32>; // ???
-//	reset-gpios = <&portf 10 GPIO_ACTIVE_LOW>;
+	pinctrl = <&hsp_lsp_pin10_gpio32>;
+	reset-gpios = <&portf 10 GPIO_ACTIVE_LOW>;
+	ranges = <0x81000000 0x00 0x00700000 0x7f 0xe0000000 0x00 0x100000>,
+		 <0x82000000 0x00 0x40000000 0x7f 0x40000000 0x00 0x40000000>;
 };
 
 &hsp_edp_phy {
@@ -121,6 +108,8 @@
 
 &hsp_mali {
 	status = "okay";
+	baikal,arqos = <10>;
+	baikal,awqos = <10>;
 };
 
 &hsp_vdec {
@@ -132,7 +121,7 @@
 &hsp_vdu {
 	status = "okay";
 	baikal,dp-lanes = <4>;
-	baikal,arqos = <13>;
+	baikal,arqos = <15>;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -201,7 +190,7 @@
 
 &sc_gmac {
 	status = "okay";
-	pinctrl = <&sc_gmac_sdio_bit0_mode1>,//; //,
+	pinctrl = <&sc_gmac_sdio_bit0_mode1>,
 		  <&hsp_lsp_pin0_gpio32>,
 		  <&hsp_lsp_pin1_gpio32>;
 
@@ -296,19 +285,41 @@ et114\n\
 &ehsp_vdu {
 	status = "okay";
 	baikal,dp-lanes = <4>;
-	baikal,arqos = <13>;
+	baikal,arqos = <15>;
 };
 
 &hsp_usb1_l0 {
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
+	phys = <&hsp_usb1_phy10g_l0>;
+	phy-names = "cdns3,usb3-phy";
 };
 
 &hsp_usb1_l1 {
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "high-speed";
+	phys = <&hsp_usb1_phy10g_l1>;
+	phy-names = "cdns3,usb3-phy";
+};
+
+&hsp_usb1_phy10g {
+	status = "okay";
+};
+
+&hsp_usb1_phy10g_l0 {
+	status = "okay";
+};
+
+&hsp_usb1_phy10g_l1 {
+	status = "okay";
+};
+
+&sc_i2c1 {	// M2E
+	status = "okay";
+	pinctrl = <&sc_lsp_pin2_i2c1_scl>,
+		  <&sc_lsp_pin3_i2c1_sda>;
 };
 
 &sc_i2c2 {

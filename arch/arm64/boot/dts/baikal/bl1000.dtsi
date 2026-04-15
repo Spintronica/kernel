@@ -60,6 +60,15 @@
 		spi1	= &hsp_qspi;
 	};
 
+	chosen {
+#ifdef USE_BL1000_PCIE0_SS_MODE
+		pcie0-ss-mode = <USE_BL1000_PCIE0_SS_MODE>;
+#endif
+#ifdef USE_BL1000_PCIE1_SS_MODE
+		pcie1-ss-mode = <USE_BL1000_PCIE1_SS_MODE>;
+#endif
+	};
+
 	clocks {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -647,6 +656,15 @@
 		#size-cells = <2>;
 		ranges;
 
+		sc_qspi_cs: gpio-controller@840020 {
+			compatible = "baikal,bl1000-qspi-cs";
+			reg = <0x0 0x840020 0x0 0x4>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <3>;
+			status = "disabled";
+		};
+
 		sc_lsp_pinctrl0: pinctrl@840048 {
 			compatible = "bl1000,pinctrl-single";
 			reg = <0x0 0x840048 0x0 0x4>;
@@ -1228,6 +1246,8 @@
 			interrupts = <GIC_SPI 452 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&sc_cmu0_clkch 41>;
 			clock-names = "ssi_clk";
+			dmas = <&sc_dmac 14 0 1>, <&sc_dmac 15 0 1>;
+			dma-names = "tx", "rx";
 			num-cs = <3>;
 			status = "disabled";
 		};
@@ -1235,6 +1255,52 @@
 		sc_dmac: dma-controller@22c0000 {
 			compatible = "snps,dma-spear1340";
 			reg = <0x0 0x22c0000 0x0 0x10000>;
+			dma-noncoherent;
+			interrupts = <GIC_SPI 454 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 455 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 456 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 458 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 460 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 461 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 462 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 463 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 464 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 465 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 466 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 467 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 468 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 469 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 470 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 471 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 472 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 473 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 474 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 475 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 476 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 477 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 478 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 479 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 480 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 481 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 482 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 483 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 484 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 485 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sc_cmu0_clkch 31>;
+			clock-names = "hclk";
+			dma-channels = <8>;
+			dma-requests = <16>;
+			dma-masters = <2>;
+			#dma-cells = <3>;
+			chan_allocation_order = <0>;
+			chan_priority = <0>;
+			block_size = <0xfff>;
+			data-width = <4 4>;
+			multi-block = <1 1 1 1 1 1 1 1>;
+			snps,max-burst-len = <64 64 64 64 64 64 64 64>;
+			snps,dma-protection-control = <1>;
 			status = "disabled";
 		};
 
@@ -1418,6 +1484,15 @@
 			compatible = "baikal,bl1000-reset";
 			reg = <0x0 0x28840018 0x0 0x4>;
 			#reset-cells = <1>;
+		};
+
+		hsp_qspi_cs: gpio-controller@288400a8 {
+			compatible = "baikal,bl1000-qspi-cs";
+			reg = <0x0 0x288400a8 0x0 0x4>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <3>;
+			status = "disabled";
 		};
 
 		hsp_lsp_pinctrl0: pinctrl@28840250 {
@@ -2118,6 +2193,60 @@
 		hsp_dmac: dma-controller@2b0c0000 {
 			compatible = "snps,dma-spear1340";
 			reg = <0x0 0x2b0c0000 0x0 0x10000>;
+			dma-noncoherent;
+			interrupts = <GIC_SPI 162 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 163 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 178 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 179 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 181 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&hsp_cmu0_clkch 21>;
+			clock-names = "hclk";
+			dma-channels = <8>;
+			dma-requests = <16>;
+			dma-masters = <2>;
+			#dma-cells = <3>;
+			chan_allocation_order = <0>;
+			chan_priority = <0>;
+			block_size = <0xfff>;
+			data-width = <4 4>;
+			multi-block = <1 1 1 1 1 1 1 1>;
+			snps,max-burst-len = <64 64 64 64 64 64 64 64>;
+			snps,dma-protection-control = <1>;
 			status = "disabled";
 		};
 
@@ -2182,7 +2311,6 @@
 			interrupt-names = "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7",
 					  "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 #if USE_BL1000_PCIE0_SS_MODE == 3
@@ -2242,7 +2370,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 #if USE_BL1000_PCIE0_SS_MODE == 3
@@ -2276,7 +2403,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 #if USE_BL1000_PCIE0_SS_MODE == 3
@@ -2306,7 +2432,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 #if USE_BL1000_PCIE0_SS_MODE == 3
@@ -2352,7 +2477,6 @@
 			interrupt-names = "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7",
 					  "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 #if USE_BL1000_PCIE1_SS_MODE == 3
@@ -2412,7 +2536,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 #if USE_BL1000_PCIE1_SS_MODE == 3
@@ -2446,7 +2569,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 #if USE_BL1000_PCIE1_SS_MODE == 3
@@ -2476,7 +2598,6 @@
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "intr";
-			#interrupt-cells = <1>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 #if USE_BL1000_PCIE1_SS_MODE == 3

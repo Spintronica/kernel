@@ -17,8 +17,8 @@
 	};
 
 	cpus {
-		baikal,demand-qos = <12>;
-		baikal,prefetch-qos = <10>;
+		baikal,demand-qos = <10>;
+		baikal,prefetch-qos = <8>;
 		cpu@0 {
 			baikal,enable-cbusy-tuning = <1>;
 		};
@@ -158,21 +158,109 @@
 #endif
 };
 
+#if USE_EXPBOARD_DBL_PRX1 & (1 << 0)
+/****************************************************/
+/* PCIe0-SS bifurcation for DBL-PRX1 (x1/x1/x1/x1)  */
+/****************************************************/
+&ehsp_pcie0_p0 {
+	status = "okay";
+	num-lanes = <1>;
+	pre-det-lane = <2>;
+};
+
+&ehsp_pcie0_p1 {
+	status = "okay";
+	num-lanes = <1>;
+};
+
+&ehsp_pcie0_p2 {
+	status = "okay";
+	num-lanes = <1>;
+};
+
+&ehsp_pcie0_p3 {
+	status = "okay";
+	num-lanes = <1>;
+};
+#elif USE_EXPBOARD_DBL_PRX2 & (1 << 0)
+/****************************************************/
+/* PCIe0-SS bifurcation for DBL-PRX2 (x2/--/--/x2)  */
+/****************************************************/
+&ehsp_pcie0_p0 {
+	status = "okay";
+	num-lanes = <2>;
+};
+
+&ehsp_pcie0_p3 {
+	status = "okay";
+	num-lanes = <2>;
+};
+#else
+/****************************************************/
+/* PCIe0-SS without bifurcation (x4/--/--/--)       */
+/****************************************************/
 &ehsp_pcie0_p0 {
 	status = "okay";
 	num-lanes = <4>;
 };
+#endif
 
+#if USE_EXPBOARD_DBL_PRX1 & (1 << 1)
+/****************************************************/
+/* PCIe1-SS bifurcation for DBL-PRX1 (x1/x1/x1/x1)  */
+/****************************************************/
+&ehsp_pcie1_p0 {
+	status = "okay";
+	num-lanes = <1>;
+	pre-det-lane = <2>;
+};
+
+&ehsp_pcie1_p1 {
+	status = "okay";
+	num-lanes = <1>;
+};
+
+&ehsp_pcie1_p2 {
+	status = "okay";
+	num-lanes = <1>;
+};
+
+&ehsp_pcie1_p3 {
+	status = "okay";
+	num-lanes = <1>;
+};
+#elif USE_EXPBOARD_DBL_PRX2 & (1 << 1)
+/****************************************************/
+/* PCIe1-SS bifurcation for DBL-PRX2 (x2/--/--/x2)  */
+/****************************************************/
+&ehsp_pcie1_p0 {
+	status = "okay";
+	num-lanes = <2>;
+};
+
+&ehsp_pcie1_p3 {
+	status = "okay";
+	num-lanes = <2>;
+};
+#else
+/****************************************************/
+/* PCIe1-SS without bifurcation (x4/--/--/--)       */
+/****************************************************/
 &ehsp_pcie1_p0 {
 	status = "okay";
 	num-lanes = <4>;
 };
+#endif
 
 #if defined(USE_EDP_PANEL)
 &hsp_edp_phy {
 	status = "okay";
 };
 #endif
+
+&hsp_dmac {
+	status = "okay";
+};
 
 &hsp_i2c0 { /* Connected to XP18 */
 	status = "okay";
@@ -206,19 +294,21 @@
 
 &hsp_mali {
 	status = "okay";
+	baikal,arqos = <10>;
+	baikal,awqos = <10>;
 };
 
 &hsp_vdec {
 	status = "okay";
-	baikal,arqos = <14>;
-	baikal,awqos = <14>;
+	baikal,arqos = <8>;
+	baikal,awqos = <8>;
 };
 
 #if defined(USE_EDP_PANEL)
 &hsp_vdu {
 	status = "okay";
 	baikal,dp-lanes = <4>;
-	baikal,arqos = <13>;
+	baikal,arqos = <15>;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -235,11 +325,16 @@
 &mdio {
 	interrupt-parent = <&portc>;
 	interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+	pinctrl = <&sc_lsp_pin0_gpio32>;
 
 	ethphy: ethernet-phy@1 {
 		compatible = "ethernet-phy-ieee802.3-c22";
 		reg = <0x1>;
 	};
+};
+
+&sc_dmac {
+	status = "okay";
 };
 
 &sc_emmc1 {
@@ -253,8 +348,8 @@
 	no-sd;
 	no-sdio;
 	non-removable;
-	mmc-ddr-1_8v;
-	sdhci-caps-mask = <0x00000002 0x03000000>;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
 	sdhci-caps = <0x0 0x40000>;
 };
 
@@ -269,8 +364,8 @@
 	no-sd;
 	no-sdio;
 	non-removable;
-	mmc-ddr-1_8v;
-	sdhci-caps-mask = <0x00000002 0x03000000>;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
 	sdhci-caps = <0x0 0x40000>;
 };
 
@@ -350,7 +445,7 @@
 
 #if defined(USE_EXPBOARD_DBL_CHG)
 /****************************************************/
-/*                   DBL-CHG v1.0                   */
+/* DTB1s is connected to DBL-CHG v1.0               */
 /****************************************************/
 &sc_hda {
 	status = "okay";
@@ -365,7 +460,7 @@
 
 #elif defined(USE_EXPBOARD_DBL_PL1)
 /****************************************************/
-/*                   DBL-PL1 v1.0                   */
+/* DTB1s is connected to DBL-PL1 v1.0               */
 /****************************************************/
 &hsp_usb1_phy20_l0 {
 	status = "okay";
@@ -472,6 +567,7 @@
 
 &sc_qspi {
 	status = "okay";
+	cs-gpios = <&sc_qspi_cs 0 GPIO_ACTIVE_LOW>;
 	pinctrl = <&sc_lsp_pin26_qspi_io0>,
 		  <&sc_lsp_pin27_qspi_io1>,
 		  <&sc_lsp_pin28_qspi_io2>,
@@ -484,11 +580,15 @@
 		reg = <0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		spi-max-frequency = <12500000>;
+		spi-max-frequency = <50000000>;
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <1>;
 		status = "okay";
 	};
+};
+
+&sc_qspi_cs {
+	status = "okay";
 };
 
 &sc_uart3 { /* Connected to HSP.UART3 via DBL-PL2 */
@@ -499,7 +599,7 @@
 
 #elif defined(USE_EXPBOARD_DBL_UDC)
 /****************************************************/
-/*                   DBL-UDC v1.2                   */
+/* DTB1s is connected to DBL-UDC v1.2               */
 /****************************************************/
 &ehsp_dp_phy {
 	status = "okay";
@@ -508,7 +608,7 @@
 &ehsp_vdu {
 	status = "okay";
 	baikal,dp-lanes = <4>;
-	baikal,arqos = <13>;
+	baikal,arqos = <15>;
 };
 
 &hsp_usb1_l0 {
@@ -621,7 +721,7 @@
 
 #if defined(USE_EXPBOARD_DBL_LTP)
 /****************************************************/
-/*                   DBL-LTP v1.0                   */
+/* DTB2s is connected to DBL-LTP v1.0               */
 /****************************************************/
 &hsp_i2s1 {
 	status = "okay";
@@ -634,6 +734,7 @@
 
 &hsp_qspi {
 	status = "okay";
+	cs-gpios = <&hsp_qspi_cs 0 GPIO_ACTIVE_LOW>;
 	pinctrl = <&hsp_lsp_pin25_qspi_dm>,
 		  <&hsp_lsp_pin26_qspi_io0>,
 		  <&hsp_lsp_pin27_qspi_io1>,
@@ -643,6 +744,10 @@
 		  <&hsp_lsp_pin31_qspi_clk>;
 
 	/* TODO: add MFC-1082 fingerprint sensor */
+};
+
+&hsp_qspi_cs {
+	status = "okay";
 };
 
 &sc_i2c3 {
@@ -691,7 +796,7 @@
 
 #elif defined(USE_EXPBOARD_DBL_PL2)
 /****************************************************/
-/*                   DBL-PL2 v1.0                   */
+/* DTB2s is connected to DBL-PL2 v1.0               */
 /****************************************************/
 &hsp_i2c2 {
 	status = "okay";
@@ -706,6 +811,7 @@
 
 &hsp_qspi {
 	status = "okay";
+	cs-gpios = <&hsp_qspi_cs 0 GPIO_ACTIVE_LOW>;
 	pinctrl = <&hsp_lsp_pin26_qspi_io0>,
 		  <&hsp_lsp_pin27_qspi_io1>,
 		  <&hsp_lsp_pin28_qspi_io2>,
@@ -718,11 +824,15 @@
 		reg = <0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		spi-max-frequency = <12500000>;
+		spi-max-frequency = <50000000>;
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <1>;
 		status = "okay";
 	};
+};
+
+&hsp_qspi_cs {
+	status = "okay";
 };
 
 &hsp_uart0 { /* Connected to XP1 */
@@ -810,7 +920,7 @@
 
 #elif defined(USE_EXPBOARD_DBL_UMC)
 /****************************************************/
-/*                   DBL-UMC v1.2                   */
+/* DTB2s is connected to DBL-UMC v1.2               */
 /****************************************************/
 &hsp_hda {
 	status = "okay";
@@ -834,6 +944,7 @@
 
 &hsp_qspi {
 	status = "okay";
+	cs-gpios = <&hsp_qspi_cs 0 GPIO_ACTIVE_LOW>;
 	pinctrl = <&hsp_lsp_pin25_qspi_dm>,
 		  <&hsp_lsp_pin26_qspi_io0>,
 		  <&hsp_lsp_pin27_qspi_io1>,
@@ -847,11 +958,15 @@
 		reg = <0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		spi-max-frequency = <12500000>;
+		spi-max-frequency = <50000000>;
 		spi-tx-bus-width = <1>;
 		spi-rx-bus-width = <1>;
 		status = "okay";
 	};
+};
+
+&hsp_qspi_cs {
+	status = "okay";
 };
 
 &hsp_usb0_l0 {

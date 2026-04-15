@@ -254,8 +254,6 @@ int baikal_vpu_h264_dec_run(struct hantro_ctx *ctx)
 
 	ctx->codec_ops->reset(ctx);
 
-	hantro_g2_check_idle(vpu);
-
 	/* Prepare the H264 decoder context. */
 	ret = hantro_h264_dec_prepare_run(ctx);
 	if (ret)

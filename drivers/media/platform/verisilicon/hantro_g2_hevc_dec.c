@@ -526,10 +526,7 @@ static int set_ref(struct hantro_ctx *ctx)
 		hantro_write_addr(vpu, G2_REF_COMP_CHROMA_ADDR(i), 0);
 	}
 
-	if (ctx->dev->variant->baikal_regs)
-		hantro_reg_write(vpu, &g2_refer_lterm_e_baikal, dpb_longterm_e);
-	else
-		hantro_reg_write(vpu, &g2_refer_lterm_e, dpb_longterm_e);
+	hantro_reg_write(vpu, &g2_refer_lterm_e, dpb_longterm_e);
 
 	return 0;
 }
@@ -618,8 +615,6 @@ int hantro_g2_hevc_dec_run(struct hantro_ctx *ctx)
 
 	if (ctx->dev->variant->baikal_regs)
 		ctx->codec_ops->reset(ctx);
-
-	hantro_g2_check_idle(vpu);
 
 	/* Prepare HEVC decoder context. */
 	ret = hantro_hevc_dec_prepare_run(ctx);

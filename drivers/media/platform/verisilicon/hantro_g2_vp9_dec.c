@@ -934,8 +934,6 @@ int hantro_g2_vp9_dec_run(struct hantro_ctx *ctx)
 	if (ctx->dev->variant->baikal_regs)
 		ctx->codec_ops->reset(ctx);
 
-	hantro_g2_check_idle(ctx->dev);
-
 	ret = start_prepare_run(ctx, &decode_params);
 	if (ret) {
 		hantro_end_prepare_run(ctx);

@@ -13,6 +13,7 @@
 
 #include <drm/drm_vblank.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 
 #include "baikal_bl1000_dp.h"
 #include "baikal_bl1000_drm.h"
@@ -103,28 +104,73 @@ irqreturn_t baikal_vdu_l1000_irq(int irq, void *data)
 	if (reg & BAIKAL_DP_SRC0_USER_FRAMING_STATUS_DATA_UNDERFLOW)
 		priv->errors[12]++;
 
-	//priv->counters[3] |= raw_stat;
-	//priv->counters[4] |= irq_stat;
-
 	/* Clear all interrupts */
 	writel(raw_stat, priv->regs + INT_CTRL);
 
 	return status;
 }
 
+static bool baikal_vdu_crtc_is_clk_enabled(struct baikal_vdu_private *priv)
+{
+	return __clk_is_enabled(clk_get_parent(priv->clk));
+}
+
+static void baikal_vdu_crtc_clk_enable(struct baikal_vdu_private *priv)
+{
+	clk_prepare_enable(clk_get_parent(priv->clk));
+}
+
+static void baikal_vdu_crtc_clk_disable(struct baikal_vdu_private *priv)
+{
+	clk_disable_unprepare(clk_get_parent(priv->clk));
+}
+
+static int baikal_vdu_crtc_set_rate(struct baikal_vdu_private *priv, u32 rate)
+{
+	int ret;
+	struct clk *clk_parent = clk_get_parent(priv->clk);
+	int pll_rate = clk_round_rate(clk_parent, rate * 4);
+
+	ret = clk_set_rate(clk_parent, pll_rate);
+	if (ret < 0)
+		return ret;
+	return clk_set_rate(priv->clk, pll_rate / 4);
+}
+
+static u64 baikal_vdu_crtc_get_rate(struct baikal_vdu_private *priv)
+{
+	return clk_get_rate(priv->clk);
+}
+
 static void baikal_vdu_crtc_helper_mode_set_nofb(struct drm_crtc *crtc)
 {
+	struct drm_device *dev = crtc->dev;
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
 	const struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	unsigned long rate;
 	unsigned int val;
+	int ret;
 
 	drm_mode_debug_printmodeline(mode);
 
-	struct clk *clk_parent = clk_get_parent(priv->clk);
-	rate = clk_round_rate(clk_parent, mode->crtc_clock * 1000 * 2);
-	clk_set_rate(clk_parent, rate);
-	clk_set_rate(priv->clk, rate / 2);
+	rate = mode->crtc_clock * 1000;
+
+	if (rate != baikal_vdu_crtc_get_rate(priv)) {
+		DRM_DEV_DEBUG_DRIVER(dev->dev, "Requested pixel clock is %lu Hz\n", rate);
+
+		if (baikal_vdu_crtc_is_clk_enabled(priv))
+			baikal_vdu_crtc_clk_disable(priv);
+		ret = baikal_vdu_crtc_set_rate(priv, rate);
+
+		if (ret >= 0) {
+			baikal_vdu_crtc_clk_enable(priv);
+			if (!baikal_vdu_crtc_is_clk_enabled(priv))
+				ret = -1;
+		}
+	}
+
+	if (ret < 0)
+		DRM_ERROR("Cannot set desired pixel clock (%lu Hz)\n", rate);
 
 	baikal_vdu_write(priv, TE_CTRL_0,
 		(TE_CTRL_0_HFP(mode->hsync_start - mode->hdisplay) & TE_CTRL_0_HFP_MASK) |
@@ -153,10 +199,9 @@ static enum drm_mode_status baikal_vdu_l1000_mode_valid(struct drm_crtc *crtc,
 {
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
 
-	if ((mode->hdisplay <= priv->max_width &&
+	if (mode->hdisplay <= priv->max_width &&
 			mode->vdisplay <= priv->max_height &&
-			mode->clock <= priv->max_pix_clock) ||
-			(mode->hdisplay == 3200 && mode->vdisplay == 1800))
+			mode->clock <= priv->max_pix_clock)
 		return MODE_OK;
 	else
 		return MODE_BAD;
@@ -166,16 +211,13 @@ static void baikal_vdu_l1000_crtc_helper_atomic_enable(struct drm_crtc *crtc,
 						       struct drm_atomic_state *state)
 {
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
-	struct clk *clk_parent = clk_get_parent(priv->clk);
 
 	DRM_DEV_DEBUG_DRIVER(crtc->dev->dev, "enabling pixel clock\n");
-	clk_prepare_enable(clk_parent);
-	clk_prepare_enable(priv->clk);
+	baikal_vdu_crtc_clk_enable(priv);
 
 	/* Enable and Power Up */
 	baikal_vdu_write(priv, TE_EN, 1);
 
-	// TODO enable IRQs if needed
 	drm_crtc_vblank_on(crtc);
 }
 
@@ -183,18 +225,14 @@ static void baikal_vdu_l1000_crtc_helper_atomic_disable(struct drm_crtc *crtc,
 							struct drm_atomic_state *state)
 {
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
-	struct clk *clk_parent = clk_get_parent(priv->clk);
 
-	// TODO disable IRQs if needed
 	drm_crtc_vblank_off(crtc);
 
 	/* Disable and Power Down */
 	baikal_vdu_write(priv, TE_EN, 0);
 
-	/* Disable clock */
 	DRM_DEV_DEBUG_DRIVER(crtc->dev->dev, "disabling pixel clock\n");
-	clk_disable_unprepare(clk_parent);
-	clk_disable_unprepare(priv->clk);
+	baikal_vdu_crtc_clk_disable(priv);
 }
 
 static void baikal_vdu_l1000_crtc_helper_atomic_flush(struct drm_crtc *crtc,
@@ -244,7 +282,6 @@ int baikal_vdu_l1000_crtc_create(struct baikal_vdu_private *priv)
 {
 	struct drm_device *dev = priv->drm;
 	struct drm_crtc *crtc = &priv->crtc;
-	struct clk *clk_parent = clk_get_parent(priv->clk);
 
 	drm_crtc_init_with_planes(dev, crtc,
 				  &priv->primary,
@@ -253,8 +290,7 @@ int baikal_vdu_l1000_crtc_create(struct baikal_vdu_private *priv)
 	drm_crtc_helper_add(crtc, &baikal_vdu_l1000_crtc_helper_funcs);
 
 	DRM_DEV_DEBUG_DRIVER(crtc->dev->dev, "enabling pixel clock\n");
-	clk_prepare_enable(clk_parent);
-	clk_prepare_enable(priv->clk);
+	baikal_vdu_crtc_clk_enable(priv);
 
 	return 0;
 }
