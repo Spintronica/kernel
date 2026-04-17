@@ -66,8 +66,6 @@
 	num-lanes = <4>;
 	pinctrl = <&hsp_lsp_pin4_gpio32>;
 	reset-gpios = <&portf 4 GPIO_ACTIVE_LOW>;
-	ranges = <0x81000000 0x00 0x00000000 0x5f 0xe0000000 0x00 0x100000>,
-		 <0x82000000 0x00 0x40000000 0x5f 0x40000000 0x00 0x40000000>;
 };
 
 &ehsp_pcie1_p0 {
@@ -79,11 +77,8 @@
 &ehsp_pcie1_p3 {
 	status = "okay";
 	num-lanes = <1>;
-	max-link-speed = <1>;
 	pinctrl = <&hsp_lsp_pin10_gpio32>;
 	reset-gpios = <&portf 10 GPIO_ACTIVE_LOW>;
-	ranges = <0x81000000 0x00 0x00700000 0x7f 0xe0000000 0x00 0x100000>,
-		 <0x82000000 0x00 0x40000000 0x7f 0x40000000 0x00 0x40000000>;
 };
 
 &hsp_edp_phy {

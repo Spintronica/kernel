@@ -77,8 +77,6 @@
 	pinctrl = <&sc_emmc_mux_gpio1>;
 	num-lanes = <4>;
 	reset-gpios = <&porte 1 GPIO_ACTIVE_LOW>;
-	ranges = <0x81000000 0x00 0x00000000 0x5f 0xe0000000 0x00 0x100000>,
-		 <0x82000000 0x00 0x40000000 0x5f 0x40000000 0x00 0x40000000>;
 };
 
 &ehsp_pcie1_p0 {
@@ -303,8 +301,6 @@ et124\n\
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "high-speed";
-	phys = <&hsp_usb1_20_l1>;
-	phy-names = "cdns3,usb3-phy";
 };
 
 &hsp_usb1_phy10g {
