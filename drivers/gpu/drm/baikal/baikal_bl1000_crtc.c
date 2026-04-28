@@ -129,7 +129,7 @@ static int baikal_vdu_crtc_set_rate(struct baikal_vdu_private *priv, u32 rate)
 {
 	int ret;
 	struct clk *clk_parent = clk_get_parent(priv->clk);
-	int pll_rate = clk_round_rate(clk_parent, rate * 4);
+	unsigned long pll_rate = clk_round_rate(clk_parent, rate * 4);
 
 	ret = clk_set_rate(clk_parent, pll_rate);
 	if (ret < 0)

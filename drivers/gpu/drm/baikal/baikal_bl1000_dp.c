@@ -250,7 +250,7 @@ static int baikal_dp_init_aux(struct baikal_dp *dp)
 		return -EINVAL;
 	}
 
-	reg |= rate / BAIKAL_DP_AUX_CLK_MHZ;
+	reg = rate / BAIKAL_DP_AUX_CLK_MHZ;
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_AUX_CLK_DIVIDER, reg);
 
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_TRANSMITTER_ENABLE, 1);
