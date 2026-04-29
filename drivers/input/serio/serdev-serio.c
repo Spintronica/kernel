@@ -90,6 +90,8 @@ static int ss_probe(struct serdev_device *serdev)
 	serio->write = ss_serio_write;
 	serio_register_port(serio);
 
+	serio->dev.of_node = node;
+
 	return 0;
 }
 
