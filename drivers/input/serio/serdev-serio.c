@@ -52,7 +52,7 @@ static int ss_probe(struct serdev_device *serdev)
 	struct device_node *node = dev->of_node;
 	struct serdev_serio *ss;
 	struct serio *serio;
-	u32 speed = 0, proto;
+	u32 speed = 0, proto, type;
 	int ret;
 
 	serio = kzalloc(sizeof(struct serio), GFP_KERNEL);
@@ -69,6 +69,9 @@ static int ss_probe(struct serdev_device *serdev)
 		dev_err(dev, "Can't read protocol property (ret %d)\n", ret);
 		return ret;
 	}
+	ret = of_property_read_u32(node, "type", &type);
+	if (ret < 0)
+		type = SERIO_RS232;
 	of_property_read_u32(node, "current-speed", &speed);
 	serdev_device_set_drvdata(serdev, ss);
 	serdev_device_set_client_ops(serdev, &ss_serdev_ops);
@@ -83,7 +86,7 @@ static int ss_probe(struct serdev_device *serdev)
 	serio->port_data = ss;
 	strscpy(serio->name, "Serdev Serio", sizeof(serio->name));
 	strscpy(serio->phys, "serio", sizeof(serio->phys));
-	serio->id.type = SERIO_RS232;
+	serio->id.type = type;
 	serio->id.proto = proto;
 	serio->id.id = SERIO_ANY;
 	serio->id.extra = SERIO_ANY;
