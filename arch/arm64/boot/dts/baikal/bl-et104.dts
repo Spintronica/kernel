@@ -8,6 +8,8 @@
 #define USE_BL1000_PCIE1_SS_MODE	3
 
 #include "bl1000.dtsi"
+#include <dt-bindings/input/gpio-keys.h>
+#include <dt-bindings/input/linux-event-codes.h>
 
 / {
 	model = "Elpitech ET104";
@@ -37,6 +39,17 @@
 
 	chosen { };
 
+	gpio-keys {
+		compatible = "gpio-keys";
+		pwr {
+			label = "PWR Button";
+			linux,code = <116>;
+			gpios = <&porte 27 GPIO_ACTIVE_LOW>;
+			wakeup-source;
+			wakeup-event-action = <EV_ACT_DEASSERTED>;
+		};
+	};
+
 	rfkill-wlan {
 		compatible = "rfkill-gpio";
 		label = "rfkill-m2e-wlan";
@@ -51,6 +64,11 @@
 		shutdown-gpios = <&porte 7 GPIO_ACTIVE_HIGH>;
 	};
 
+	pd-supply {
+		compatible = "gpio-charger";
+		gpios = <&porte 17 GPIO_ACTIVE_HIGH>;
+		charger-type = "mains";
+	};
 };
 
 &ehsp_pcie0_p0 {
@@ -190,9 +208,10 @@
 	pinctrl = <&sc_lsp_pin12_uart2_rxd>,
 		  <&sc_lsp_pin13_uart2_txd>;
 
-	ps2mult {
+	ps2serio {
 		compatible = "serdev,serio";
 		current-speed = <115200>;
+		type = <0x01>;	// SERIO_8042
 		protocol = <0x22>; //SERIO_PS2SER
 		linux,keymap = MKEY(0x1, 67),
 			MKEY(0x2, 65),
@@ -344,6 +363,7 @@
 			MKEY(0xfe, 119),
 			MKEY(0x103, 65),
 			MKEY(0x104, 99),
+			MKEY(0xbf, 142),
 			MKEY(0xc1, 225),
 			MKEY(0xc2, 224),
 			MKEY(0xc3, 247),
@@ -515,12 +535,23 @@
 	status = "okay";
 	pinctrl = <&hsp_lsp_pin0_i2c0_scl>,
 		  <&hsp_lsp_pin1_i2c0_sda>;
+
+	rtc@54 {
+		reg = <0x54>;
+		compatible = "nxp,pcf2127";
+	};
 };
 
 &hsp_i2c1 {
 	status = "okay";
 	pinctrl = <&hsp_lsp_pin2_i2c1_scl>,
 		  <&hsp_lsp_pin3_i2c1_sda>;
+	clock-frequency = <100000>;
+
+	battery@b {
+		reg = <0xb>;
+		compatible = "sbs,sbs-battery";
+	};
 };
 
 &hsp_i2c2 {
