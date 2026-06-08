@@ -1,5 +1,5 @@
 FROM debian:trixie-slim
-LABEL maintainer="Nick Zhuravlev <nikolay.zhuravlev@elpitech.ru>"
+LABEL maintainer="Nick Zhuravlev <zhuravlevnd@spintronica.ru>"
 
 RUN sed -i 's/deb.debian.org/mirror.docker.ru/g' /etc/apt/sources.list.d/debian.sources
 
