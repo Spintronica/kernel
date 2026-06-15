@@ -18,6 +18,8 @@
 	aliases {
 		ethernet0 = &sc_gmac;
 		fru = &fru;
+		evdu = &ehsp_vdu;
+		vdu = &hsp_vdu;
 	};
 
 	cpus {
