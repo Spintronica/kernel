@@ -144,16 +144,13 @@
 &sc_emmc1 {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc1>,
-		  <&sc_emmc_hc1_1_8v>,
+//		  <&sc_emmc_hc1_1_8v>,
+		  <&sc_emmc_hc1_3_3v>,
 		  <&sc_emmc_hc1_mem_pwrup>,
 		  <&sc_emmc_pu_hc1_cmd_dat_0_7>,
 		  <&sc_emmc_pd_hc1_dqs>;
 	bus-width = <4>;
-	no-sd;
-	no-sdio;
-	non-removable;
-	mmc-ddr-1_8v;
-	sdhci-caps-mask = <0x00000002 0x03000000>;
+	mmc-ddr-3_3v;
 	sdhci-caps = <0x0 0x40000>;
 };
 
@@ -165,11 +162,7 @@
 		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
 		  <&sc_emmc_pd_hc2_dqs>;
 	bus-width = <4>;
-	no-sd;
-	no-sdio;
-	non-removable;
-	mmc-ddr-1_8v;
-	sdhci-caps-mask = <0x00000002 0x03000000>;
+	mmc-ddr-3_3v;
 	sdhci-caps = <0x0 0x40000>;
 };
 
