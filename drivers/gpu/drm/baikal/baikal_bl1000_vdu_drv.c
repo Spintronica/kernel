@@ -182,7 +182,7 @@ static int baikal_vdu_allocate_irq(struct platform_device *pdev,
 
 static int baikal_vdu_allocate_clk(struct baikal_vdu_private *priv)
 {
-	priv->clk = clk_get(priv->drm->dev, priv->pclk_name);
+	priv->clk = devm_clk_get_enabled(priv->drm->dev, priv->pclk_name);
 	if (IS_ERR(priv->clk)) {
 		dev_err(priv->drm->dev, "%s: unable to get %s, err %ld\n", priv->name, priv->pclk_name, PTR_ERR(priv->clk));
 		return PTR_ERR(priv->clk);
