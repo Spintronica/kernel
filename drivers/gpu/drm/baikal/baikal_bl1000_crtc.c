@@ -265,7 +265,6 @@ const struct drm_crtc_funcs baikal_vdu_l1000_crtc_funcs = {
 	.page_flip = drm_atomic_helper_page_flip,
 	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
-	.get_vblank_counter = baikal_get_vblank_counter,
 	.enable_vblank = baikal_enable_vblank,
 	.disable_vblank = baikal_disable_vblank,
 };
