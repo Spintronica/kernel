@@ -406,7 +406,6 @@ et124\n\
 	status = "okay";
 	pinctrl = <&sc_lsp_pin8_uart0_rxd>,
 		  <&sc_lsp_pin9_uart0_txd>;
-	clocks = <&uart_clk>, <&sc_cmu0_clkch 31>;
 };
 
 &sc_uart1 {
