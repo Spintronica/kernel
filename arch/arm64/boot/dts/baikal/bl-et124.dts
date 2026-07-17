@@ -98,13 +98,13 @@
 };
 
 &hsp_i2c0 {
-//vvv	status = "okay";
+	status = "okay";
 	pinctrl = <&hsp_lsp_pin0_i2c0_scl>,
 		  <&hsp_lsp_pin1_i2c0_sda>;
 };
 
 &hsp_i2c1 {
-//vvv	status = "okay";
+	status = "okay";
 	pinctrl = <&hsp_lsp_pin2_i2c1_scl>,
 		  <&hsp_lsp_pin3_i2c1_sda>;
 };

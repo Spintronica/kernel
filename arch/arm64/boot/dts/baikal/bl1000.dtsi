@@ -2079,7 +2079,8 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <500>;
-			clocks = <&hsp_cmu0_clkch 23>;
+			clocks = <&hsp_cmu0_clkch 23>, <&hsp_cmu0_clkch 21>;
+			clock-names = "ref", "pclk";
 			clock-frequency = <400000>;
 			status = "disabled";
 		};
@@ -2091,7 +2092,8 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <500>;
-			clocks = <&hsp_cmu0_clkch 23>;
+			clocks = <&hsp_cmu0_clkch 23>, <&hsp_cmu0_clkch 21>;
+			clock-names = "ref", "pclk";
 			clock-frequency = <400000>;
 			status = "disabled";
 		};
@@ -2103,7 +2105,8 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <500>;
-			clocks = <&hsp_cmu0_clkch 23>;
+			clocks = <&hsp_cmu0_clkch 23>, <&hsp_cmu0_clkch 21>;
+			clock-names = "ref", "pclk";
 			clock-frequency = <400000>;
 			status = "disabled";
 		};
@@ -2115,7 +2118,8 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <500>;
-			clocks = <&hsp_cmu0_clkch 23>;
+			clocks = <&hsp_cmu0_clkch 23>, <&hsp_cmu0_clkch 21>;
+			clock-names = "ref", "pclk";
 			clock-frequency = <400000>;
 			status = "disabled";
 		};
