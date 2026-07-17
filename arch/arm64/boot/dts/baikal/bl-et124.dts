@@ -167,12 +167,11 @@
 };
 
 &mdio {
-	interrupt-parent = <&porte>;
-	interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
-
 	ethphy: ethernet-phy@3 {
 		compatible = "ethernet-phy-ieee802.3-c22";
 		reg = <0x3>;
+		interrupt-parent = <&porte>;
+		interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
