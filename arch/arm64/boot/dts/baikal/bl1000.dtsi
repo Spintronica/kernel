@@ -93,6 +93,13 @@
 			clock-output-names = "refclk100mhz";
 		};
 
+		apb_clk: apb_clk {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <200000000>;
+			clock-output-names = "apb_clk";
+		};
+
 		/* SC MM specification v0.32 */
 		sc_cmu0_pll: sc-cmu0-pll@800000 {
 			compatible = "baikal,bl1000-cmu";
@@ -2079,7 +2086,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <500>;
-			clocks = <&hsp_cmu0_clkch 23>, <&hsp_cmu0_clkch 21>;
+			clocks = <&hsp_cmu0_clkch 23>, <&apb_clk>;
 			clock-names = "ref", "pclk";
 			clock-frequency = <400000>;
 			status = "disabled";
@@ -2092,7 +2099,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <500>;
-			clocks = <&hsp_cmu0_clkch 23>, <&hsp_cmu0_clkch 21>;
+			clocks = <&hsp_cmu0_clkch 23>, <&apb_clk>;
 			clock-names = "ref", "pclk";
 			clock-frequency = <400000>;
 			status = "disabled";
@@ -2105,7 +2112,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <500>;
-			clocks = <&hsp_cmu0_clkch 23>, <&hsp_cmu0_clkch 21>;
+			clocks = <&hsp_cmu0_clkch 23>, <&apb_clk>;
 			clock-names = "ref", "pclk";
 			clock-frequency = <400000>;
 			status = "disabled";
@@ -2118,7 +2125,7 @@
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
 			i2c-sda-hold-time-ns = <500>;
-			clocks = <&hsp_cmu0_clkch 23>, <&hsp_cmu0_clkch 21>;
+			clocks = <&hsp_cmu0_clkch 23>, <&apb_clk>;
 			clock-names = "ref", "pclk";
 			clock-frequency = <400000>;
 			status = "disabled";
@@ -2130,7 +2137,7 @@
 			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>, <&hsp_cmu0_clkch 21>;
+			clocks = <&hsp_cmu0_clkch 22>, <&apb_clk>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
@@ -2141,7 +2148,7 @@
 			interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>, <&hsp_cmu0_clkch 21>;
+			clocks = <&hsp_cmu0_clkch 22>, <&apb_clk>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
@@ -2152,7 +2159,7 @@
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>, <&hsp_cmu0_clkch 21>;
+			clocks = <&hsp_cmu0_clkch 22>, <&apb_clk>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
@@ -2163,7 +2170,7 @@
 			interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>, <&hsp_cmu0_clkch 21>;
+			clocks = <&hsp_cmu0_clkch 22>, <&apb_clk>;
 			clock-names = "baudclk", "apb_pclk";
 			status = "disabled";
 		};
@@ -2188,7 +2195,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsp_cmu0_clkch 21>;
+			clocks = <&apb_clk>;
 			clock-names = "ssi_clk";
 			num-cs = <3>;
 			status = "disabled";
@@ -2238,7 +2245,7 @@
 				     <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsp_cmu0_clkch 21>;
+			clocks = <&apb_clk>;
 			clock-names = "hclk";
 			dma-channels = <8>;
 			dma-requests = <16>;
