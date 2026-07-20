@@ -430,6 +430,20 @@ static void baikal_dp_start(struct baikal_dp *dp)
 	mode->lane_cnt = dp->link_config.lane_count;
 	dp->link_config.cr_done_oldstate = dp->link_config.max_lanes;
 
+	/*
+	 * Power on the PHY before link training.
+	 * phy_init() (called at probe) configures registers but does not
+	 * take the PHY out of reset or wait for PLL lock. Without phy_power_on()
+	 * the main link PLL never locks and DP link training fails.
+	 * When the PHY was already configured by UEFI firmware (already_configured
+	 * flag), phy_power_on() is a harmless short delay.
+	 */
+	ret = phy_power_on(dp->phy[0]);
+	if (ret) {
+		dev_err(dp->dev, "failed to power on DP PHY: %d\n", ret);
+		return;
+	}
+
 	baikal_dp_power_cycle(dp);
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_TRANSMITTER_ENABLE, 0);
 
@@ -687,6 +701,13 @@ static int baikal_dp_connector_get_modes(struct drm_connector *connector)
 
 	edid = drm_get_edid(connector, &dp->aux.ddc);
 	if (!edid) {
+		dev_warn(dp->dev, "EDID read failed, power-cycling sink and retrying\n");
+		baikal_dp_power_cycle(dp);
+		msleep(100);
+		edid = drm_get_edid(connector, &dp->aux.ddc);
+	}
+	if (!edid) {
+		dev_warn(dp->dev, "EDID read failed after power-cycle\n");
 		drm_connector_update_edid_property(connector, NULL);
 		dp->have_edid = false;
 		return 0;
@@ -867,8 +888,8 @@ static void baikal_dp_encoder_disable(struct drm_encoder *encoder)
 
 	if (dp->enabled) {
 		dp->enabled = false;
-		cancel_delayed_work(&dp->hpd_work);
-		cancel_delayed_work(&dp->hpd_pulse_work);
+		cancel_delayed_work_sync(&dp->hpd_work);
+		cancel_delayed_work_sync(&dp->hpd_pulse_work);
 
 		baikal_dp_write(dp->dp_base, BAIKAL_DP_INPUT_SOURCE_ENABLE, 0);
 		baikal_dp_stop(dp);
@@ -966,42 +987,42 @@ static void baikal_dp_hpd_work_func(struct work_struct *work)
 
 	dp = container_of(work, struct baikal_dp, hpd_work.work);
 
-	bool handled = true, ret = true;
-	int rc;
-	u8 esi[8] = {};
+	if (dp->mst_mgr.mst_state) {
+		bool handled = true, ret = true;
+		int rc;
+		u8 esi[8] = {};
 
-	while (handled) {
-		u8 ack[8] = {};
+		while (handled) {
+			u8 ack[8] = {};
 
-		rc = drm_dp_dpcd_read(&dp->aux, DP_SINK_COUNT_ESI, esi, 8);
-		if (rc != 8) {
-			ret = false;
-			break;
+			rc = drm_dp_dpcd_read(&dp->aux, DP_SINK_COUNT_ESI, esi, 8);
+			if (rc != 8) {
+				ret = false;
+				break;
+			}
+
+			drm_dp_mst_hpd_irq_handle_event(&dp->mst_mgr, esi, ack, &handled);
+
+			if (!handled)
+				break;
+
+			rc = drm_dp_dpcd_writeb(&dp->aux, DP_SINK_COUNT_ESI + 1, ack[1]);
+
+			if (rc != 1) {
+				ret = false;
+				break;
+			}
+
+			drm_dp_mst_hpd_irq_send_new_request(&dp->mst_mgr);
 		}
 
-		drm_dp_mst_hpd_irq_handle_event(&dp->mst_mgr, esi, ack, &handled);
-
-		if (!handled)
-			break;
-
-		rc = drm_dp_dpcd_writeb(&dp->aux, DP_SINK_COUNT_ESI + 1, ack[1]);
-
-		if (rc != 1) {
-			ret = false;
-			break;
-		}
-
-		drm_dp_mst_hpd_irq_send_new_request(&dp->mst_mgr);
+		if (!ret)
+			dev_err(dp->dev, "MST IRQ failed %d %d\n", handled, rc);
+		else
+			dev_dbg(dp->dev, "MST IRQ OK %d %d\n", handled, rc);
 	}
 
-	if (!ret)
-		dev_err(dp->dev, "MST IRQ failed %d %d\n", handled, rc);
-	else
-		dev_err(dp->dev, "MST IRQ OK %d %d\n", handled, rc);
-
-	/*(if (dp->drm)
-		drm_helper_hpd_irq_event(dp->drm);
-	*/
+	drm_helper_hpd_irq_event(dp->drm);
 }
 
 static struct drm_prop_enum_list baikal_dp_bpc_enum[] = {
@@ -1024,7 +1045,7 @@ static void baikal_dp_hpd_pulse_work_func(struct work_struct *work)
 		return;
 
 	if (!baikal_dp_txconnected(dp)) {
-		dev_err(dp->dev, "incorrect HPD pulse received\n");
+		dev_dbg(dp->dev, "incorrect HPD pulse received\n");
 		return;
 	}
 
@@ -1077,12 +1098,11 @@ static irqreturn_t baikal_dp_irq_handler(int irq, void *data)
 
 	if (intrstatus & BAIKAL_DP_INTERRUPT_HPDEVENT_MASK) {
 		dp->counters[2]++;
-		/* dev_dbg_ratelimited(dp->dev, "hpdevent detected\n"); */
-		/* schedule_delayed_work(&dp->hpd_work, 0); */
+		schedule_delayed_work(&dp->hpd_work, 0);
 	}
 
 	if (intrstatus & BAIKAL_DP_INTERRUPT_HPDPULSE_MASK) {
-		/* schedule_delayed_work(&dp->hpd_pulse_work, 0); */
+		schedule_delayed_work(&dp->hpd_pulse_work, 0);
 	}
 
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_INTERRUPT_MASK, 0x7fe0);
@@ -1103,7 +1123,16 @@ static int baikal_dp_connector_create(struct baikal_dp *dp, struct drm_device *d
 			 DRM_MODE_ENCODER_TMDS, NULL);
 	drm_encoder_helper_add(encoder, &baikal_dp_encoder_helper_funcs);
 
-	connector->polled = DRM_CONNECTOR_POLL_HPD;
+	/*
+	 * Enable polling as a fallback alongside HPD interrupts.
+	 * On some boards the HPDEVENT hardware interrupt is not generated
+	 * when a display is connected after boot (e.g., KVM switch scenario).
+	 * Polling calls .detect which reads the HPD register directly,
+	 * ensuring the connection is still detected within ~10 seconds.
+	 */
+	connector->polled = DRM_CONNECTOR_POLL_HPD |
+			    DRM_CONNECTOR_POLL_CONNECT |
+			    DRM_CONNECTOR_POLL_DISCONNECT;
 	ret = drm_connector_init(encoder->dev, connector,
 				 &baikal_dp_connector_funcs,
 				 DRM_MODE_CONNECTOR_DisplayPort);
