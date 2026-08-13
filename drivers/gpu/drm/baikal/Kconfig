@@ -23,3 +23,9 @@ config DRM_BAIKAL_VDU
 	help
 	  Choose this option for DRM support for the Baikal-M Video Display Unit (VDU).
 	  If M is selected the module will be called baikal_vdu_drm.
+
+config SND_BAIKAL_BL1000_DP
+	tristate "Audio support for the the Baikal DisplayPort sound card"
+	help
+	  Select this option to enable Baikal DisplayPort sound card
+	  support.

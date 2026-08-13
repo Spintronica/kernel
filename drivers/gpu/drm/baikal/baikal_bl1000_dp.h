@@ -1,12 +1,11 @@
 #ifndef __BAIKAL_VDU_DP_H__
 #define __BAIKAL_VDU_DP_H__
 
-#include <drm/drm_bridge.h>
 #include <drm/display/drm_dp_helper.h>
-#include <drm/display/drm_dp_mst_helper.h>
 #include <linux/phy/phy.h>
 
 #include "baikal_bl1000_drm.h"
+#include "baikal_bl1000_dp_snd.h"
 
 #define BAIKAL_DP_REG_ADDR_OFFSET			2
 
@@ -65,12 +64,14 @@
 #define BAIKAL_DP_INTERRUPT_HPDPULSE_MASK		BIT(0)
 #define BAIKAL_DP_INTERRUPT_HPDEVENT_MASK		BIT(1)
 #define BAIKAL_DP_INTERRUPT_REPLY_RCVD_MASK		BIT(2)
+#define BAIKAL_DP_INTERRUPT_GP_TIMER_MASK		BIT(4)
 #define BAIKAL_DP_REPLY_DATA_COUNT			0x148
 #define BAIKAL_DP_REPLY_DATA_COUNT_MASK			0xff
 
 #define BAIKAL_DP_SST_SOURCE_SELECT			0x50c
 
 #define BAIKAL_DP_SRC0_STREAM_ENABLE			0x800
+#define BAIKAL_DP_SEC_ENABLE				0x804
 
 #define BAIKAL_DP_INPUT_STATUS				0x80c
 #define BAIKAL_DP_INPUT_STATUS_ODDEVEN			BIT(3)
@@ -128,6 +129,14 @@
 #define BAIKAL_DP_SRC0_USER_FRAMING_STATUS_VBI_TIMING_ERROR	BIT(0)
 #define BAIKAL_DP_SRC0_USER_FRAMING_STATUS_DATA_UNDERFLOW	BIT(1)
 
+//#if 0
+#define DP_INFOFRAME_FIFO_SIZE_WORDS			8
+#define DP_INFOFRAME_HEADER_SIZE			4
+#define DP_AUDIO_INFOFRAME_SIZE				10
+#define DP_INFOFRAME_SIZE(type) \
+	(DP_INFOFRAME_HEADER_SIZE + DP_ ## type ## _INFOFRAME_SIZE)
+//#endif
+
 #define BAIKAL_DP_REDUCED_BIT_RATE			162000
 #define BAIKAL_DP_HIGH_BIT_RATE_1			270000
 #define BAIKAL_DP_HIGH_BIT_RATE_2			540000
@@ -163,15 +172,7 @@ struct baikal_dp_config {
 	u8 bpc;
 	u8 num_colors;
 	u8 fmt;
-};
-
-enum baikal_dp_train_state {
-	XLNX_DP_TRAIN_CR = 0,
-	XLNX_DP_TRAIN_CE = 1,
-	XLNX_DP_ADJUST_LINKRATE = 2,
-	XLNX_DP_ADJUST_LANECOUNT = 3,
-	XLNX_DP_TRAIN_FAILURE = 4,
-	XLNX_DP_TRAIN_SUCCESS = 5
+	bool audio_enabled;
 };
 
 struct baikal_dp;
@@ -186,7 +187,6 @@ struct baikal_dp {
 	struct baikal_vdu_crossbar *crossbar;
 	struct drm_encoder encoder;
 	struct drm_connector connector;
-	struct drm_bridge bridge;
 	struct drm_property *sync_prop;
 	struct drm_property *bpc_prop;
 	struct drm_dp_aux aux;
@@ -199,9 +199,8 @@ struct baikal_dp {
 	struct clk *axi_lite_clk;
 	struct clk *tx_vid_clk;
 	struct gpio_desc *reset_gpio;
-	struct delayed_work hpd_work;
 	struct delayed_work hpd_pulse_work;
-
+	struct baikal_dp_audio_data *tx_audio_data;
 	struct drm_display_mode *adjusted_mode;
 	union phy_configure_opts phy_opts;
 	enum drm_connector_status status;
@@ -211,16 +210,25 @@ struct baikal_dp {
 	u8 train_set[BAIKAL_DP_MAX_LANES];
 	u8 num_lanes;
 	unsigned int enabled : 1;
+	bool audio_init;
 	bool have_edid;
 	unsigned int colorimetry_through_vsc : 1;
-
-	struct drm_dp_mst_topology_mgr mst_mgr;
-
+	struct baikal_dp_aud_dev aud_dev;
 	u32 counters[20];
 };
 
-int baikal_dp_probe(struct platform_device *pdev);
+/**
+ * struct baikal_dp_audio_data - Audio data structure
+ * @buffer: Audio infoframe data buffer
+ */
+struct baikal_dp_audio_data {
+	u32 buffer[DP_INFOFRAME_FIFO_SIZE_WORDS];
+};
 
+int baikal_dp_probe(struct platform_device *pdev);
+inline void baikal_dp_write(void __iomem *base, int offset, u32 val);
 inline u32 baikal_dp_read(void __iomem *base, int offset);
+inline void baikal_dp_set(void __iomem *base, int offset, u32 set);
+inline void baikal_dp_clr(void __iomem *base, int offset, u32 clr);
 
 #endif

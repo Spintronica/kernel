@@ -27,9 +27,11 @@ static int baikal_vdu_l1000_probe(struct platform_device *pdev, struct drm_devic
 	struct drm_mode_config *mode_config;
 	int ret;
 
+	dp0->enable_vblank = false;
 	dp0->ops = crossbar->ops;
 	dp0->drm = &crossbar->drm;
 	baikal_vdu_set_name(dp0, CRTC_DP0, "dp0");
+	dp1->enable_vblank = false;
 	dp1->ops = crossbar->ops;
 	dp1->drm = &crossbar->drm;
 	baikal_vdu_set_name(dp1, CRTC_DP1, "dp1");
@@ -116,7 +118,7 @@ static void baikal_vdu_l1000_irq_off(struct baikal_vdu_private *priv)
 static void baikal_vdu_l1000_irq_on(struct baikal_vdu_private *priv)
 {
 	baikal_vdu_write(priv, INT_CTRL, ~0);
-	baikal_vdu_write(priv, INT_MASK, ~(INT_VFP_START | INT_ANY_ERROR));
+	baikal_vdu_write(priv, INT_MASK, ~(INT_VS_START | INT_ANY_ERROR));
 }
 
 static void baikal_vdu_l1000_post_allocate_resources(struct baikal_vdu_private *priv)

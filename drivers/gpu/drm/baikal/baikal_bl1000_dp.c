@@ -2,49 +2,21 @@
 /*
  * Baikal Electronics DisplayPort TX Driver
  *
- * Copyright (C) 2025 Baikal Electronics JSC
+ * Copyright (C) 2026 Baikal Electronics JSC
  *
  * Author: Pavel Parkhomenko <Pavel.Parkhomenko@baikalelectronics.ru>
  *
  */
 
-#include <clocksource/arm_arch_timer.h>
-#include <linux/bitfield.h>
 #include <linux/clk.h>
-#include <linux/delay.h>
-#include <linux/device.h>
-#include <linux/gpio/consumer.h>
-#include <linux/of_address.h>
-#include <linux/of_device.h>
-#include <linux/module.h>
-#include <linux/mutex.h>
-#include <linux/phy/phy.h>
-#include <linux/phy/phy-dp.h>
-#include <linux/platform_device.h>
+#include <linux/debugfs.h>
 #include <linux/pm_runtime.h>
-#include <uapi/linux/videodev2.h>
 
-#include <video/videomode.h>
-
-#include <drm/drm_atomic_helper.h>
-#include <drm/drm_connector.h>
-#include <drm/drm_framebuffer.h>
-#include <drm/drm_crtc.h>
-#include <drm/drm_crtc_helper.h>
-#include <drm/display/drm_dp.h>
-#include <drm/display/drm_dp_helper.h>
-#include <drm/display/drm_dp_mst_helper.h>
-#include <drm/display/drm_hdmi_helper.h>
-
+#include <drm/drm_eld.h>
 #include <drm/drm_edid.h>
-#include <drm/drm_fourcc.h>
-#include <drm/drm_of.h>
-#include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 
-#include <linux/hdmi.h>
-
-#include <linux/debugfs.h>
+#include <video/videomode.h>
 
 #include "baikal_bl1000_dp.h"
 
@@ -52,15 +24,12 @@
 
 #define AUX_READ_BIT	0x1
 
-static int int_sig_state;
-
 static ssize_t baikal_dp_aux_transfer(struct drm_dp_aux *aux, struct drm_dp_aux_msg *msg);
-
 static int baikal_dp_train_loop(struct baikal_dp *dp);
 static void baikal_dp_encoder_mode_set_transfer_unit(struct baikal_dp *dp,
 						     struct drm_display_mode *mode);
 static void baikal_dp_encoder_mode_set_stream(struct baikal_dp *dp,
-					    struct drm_display_mode *mode);
+					      struct drm_display_mode *mode);
 static void baikal_dp_hpd_pulse_work_func(struct work_struct *work);
 static int baikal_dp_txconnected(struct baikal_dp *dp);
 
@@ -74,7 +43,7 @@ static inline struct baikal_dp *connector_to_dp(struct drm_connector *connector)
 	return container_of(connector, struct baikal_dp, connector);
 }
 
-static inline void baikal_dp_write(void __iomem *base, int offset, u32 val)
+inline void baikal_dp_write(void __iomem *base, int offset, u32 val)
 {
 	writel(val, base + (offset << BAIKAL_DP_REG_ADDR_OFFSET));
 }
@@ -84,9 +53,14 @@ inline u32 baikal_dp_read(void __iomem *base, int offset)
 	return readl(base + (offset << BAIKAL_DP_REG_ADDR_OFFSET));
 }
 
-static void baikal_dp_set(void __iomem *base, int offset, u32 set)
+inline void baikal_dp_set(void __iomem *base, int offset, u32 set)
 {
 	baikal_dp_write(base, offset, baikal_dp_read(base, offset) | set);
+}
+
+inline void baikal_dp_clr(void __iomem *base, int offset, u32 clr)
+{
+	baikal_dp_write(base, offset, baikal_dp_read(base, offset) & ~clr);
 }
 
 static void baikal_dp_update_bpp(struct baikal_dp *dp)
@@ -159,7 +133,6 @@ static int baikal_dp_set_linkrate(struct baikal_dp *dp, u8 bw_code)
 		phy_cfg->link_rate = bw_code * 270;
 		phy_cfg->lanes = lane_count;
 		phy_configure(dp->phy[0], &dp->phy_opts);
-		dev_err(dp->dev, "PHY SET RATE");
 	}
 
 	/* write new link rate to the DisplayPort TX core */
@@ -535,6 +508,11 @@ static void baikal_dp_start(struct baikal_dp *dp)
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_SOFT_RESET,
 			      BAIKAL_DP_SOFT_RESET_LINK_RESET |
 			      BAIKAL_DP_SOFT_RESET_VIDEO_RESET);
+
+	if (dp->config.audio_enabled) {
+		baikal_dp_audio_init(dp);
+	}
+
 	/* SECTION A BEGIN */
 	baikal_dp_mainlink_en(dp, 0x1);
 
@@ -556,6 +534,10 @@ static void baikal_dp_stop(struct baikal_dp *dp)
 	struct phy_configure_opts_dp *phy_cfg = &dp->phy_opts.dp;
 
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_SRC0_STREAM_ENABLE, 0);
+
+	if (dp->config.audio_enabled) {
+		baikal_dp_audio_shutdown(dp);
+	}
 
 	/* set Vs and Pe to 0, 0 on cable disconnect */
 	phy_cfg->pre[0] = 0;
@@ -682,6 +664,16 @@ baikal_dp_connector_detect(struct drm_connector *connector, bool force)
 		dp->colorimetry_through_vsc = true;
 	else*/
 	dp->colorimetry_through_vsc = false;
+
+	if (dp->config.audio_enabled && !dp->audio_init) {
+		if (baikal_dp_register_aud_dev(dp)) {
+			dp->audio_init = false;
+			dev_err(dp->dev, "DP audio init failed\n");
+		} else {
+			dp->audio_init = true;
+			dev_info(dp->dev, "DP audio initialized\n");
+		}
+	}
 
 	return connector_status_connected;
 disconnected:
@@ -879,6 +871,11 @@ static void baikal_dp_encoder_enable(struct drm_encoder *encoder)
 
 		baikal_dp_start(dp);
 		baikal_dp_write(dp->dp_base, BAIKAL_DP_INPUT_SOURCE_ENABLE, 1);
+		if (dp->config.audio_enabled) {
+			baikal_dp_set(dp->dp_base, BAIKAL_DP_SEC_ENABLE, 1);
+			struct baikal_vdu_private *vdu = &dp->crossbar->vdu[0];
+			dp->crossbar->ops->irq_on(vdu);
+		}
 	}
 }
 
@@ -888,9 +885,10 @@ static void baikal_dp_encoder_disable(struct drm_encoder *encoder)
 
 	if (dp->enabled) {
 		dp->enabled = false;
-		cancel_delayed_work_sync(&dp->hpd_work);
-		cancel_delayed_work_sync(&dp->hpd_pulse_work);
-
+		cancel_delayed_work(&dp->hpd_pulse_work);
+		if (dp->config.audio_enabled) {
+			baikal_dp_clr(dp->dp_base, BAIKAL_DP_SEC_ENABLE, 1);
+		}
 		baikal_dp_write(dp->dp_base, BAIKAL_DP_INPUT_SOURCE_ENABLE, 0);
 		baikal_dp_stop(dp);
 	}
@@ -981,49 +979,6 @@ static const struct drm_encoder_helper_funcs baikal_dp_encoder_helper_funcs = {
 	.atomic_mode_set	= baikal_dp_encoder_atomic_mode_set,
 };
 
-static void baikal_dp_hpd_work_func(struct work_struct *work)
-{
-	struct baikal_dp *dp;
-
-	dp = container_of(work, struct baikal_dp, hpd_work.work);
-
-	if (dp->mst_mgr.mst_state) {
-		bool handled = true, ret = true;
-		int rc;
-		u8 esi[8] = {};
-
-		while (handled) {
-			u8 ack[8] = {};
-
-			rc = drm_dp_dpcd_read(&dp->aux, DP_SINK_COUNT_ESI, esi, 8);
-			if (rc != 8) {
-				ret = false;
-				break;
-			}
-
-			drm_dp_mst_hpd_irq_handle_event(&dp->mst_mgr, esi, ack, &handled);
-
-			if (!handled)
-				break;
-
-			rc = drm_dp_dpcd_writeb(&dp->aux, DP_SINK_COUNT_ESI + 1, ack[1]);
-
-			if (rc != 1) {
-				ret = false;
-				break;
-			}
-
-			drm_dp_mst_hpd_irq_send_new_request(&dp->mst_mgr);
-		}
-
-		if (!ret)
-			dev_err(dp->dev, "MST IRQ failed %d %d\n", handled, rc);
-		else
-			dev_dbg(dp->dev, "MST IRQ OK %d %d\n", handled, rc);
-	}
-
-	drm_helper_hpd_irq_event(dp->drm);
-}
 
 static struct drm_prop_enum_list baikal_dp_bpc_enum[] = {
 	{ 6, "6BPC" },
@@ -1086,11 +1041,19 @@ static irqreturn_t baikal_dp_irq_handler(int irq, void *data)
 	u32 intrstatus;
 
 	intrstatus = baikal_dp_read(dp->dp_base, BAIKAL_DP_INTERRUPT_CAUSE);
-	int_sig_state = intrstatus;
-	baikal_dp_write(dp->dp_base, BAIKAL_DP_INTERRUPT_MASK, 0x7fff);
 
-	if (!intrstatus)
+	if (!intrstatus) {
+		baikal_dp_write(dp->dp_base, BAIKAL_DP_INTERRUPT_MASK, 0x7fe0);
+		dp->counters[1]++;
 		return IRQ_NONE;
+	}
+
+	if (intrstatus & BAIKAL_DP_INTERRUPT_GP_TIMER_MASK) {
+		u64 t0 = ktime_get_ns();
+		baikal_dp_pcm_push_tx(&dp->aud_dev);
+		dp->counters[18] = ktime_get_ns() - t0;
+		dp->counters[4]++;
+	}
 
 	if (intrstatus & BAIKAL_DP_INTERRUPT_REPLY_RCVD_MASK) {
 		dp->counters[3]++;
@@ -1098,14 +1061,12 @@ static irqreturn_t baikal_dp_irq_handler(int irq, void *data)
 
 	if (intrstatus & BAIKAL_DP_INTERRUPT_HPDEVENT_MASK) {
 		dp->counters[2]++;
-		schedule_delayed_work(&dp->hpd_work, 0);
+		/* schedule_delayed_work(&dp->hpd_work, 0); */
 	}
 
 	if (intrstatus & BAIKAL_DP_INTERRUPT_HPDPULSE_MASK) {
 		schedule_delayed_work(&dp->hpd_pulse_work, 0);
 	}
-
-	baikal_dp_write(dp->dp_base, BAIKAL_DP_INTERRUPT_MASK, 0x7fe0);
 
 	return IRQ_HANDLED;
 }
@@ -1170,7 +1131,6 @@ static int baikal_dp_connector_create(struct baikal_dp *dp, struct drm_device *d
 	baikal_dp_init_aux(dp);
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_TRANSMITTER_ENABLE, 1);
 
-	INIT_DELAYED_WORK(&dp->hpd_work, baikal_dp_hpd_work_func);
 	INIT_DELAYED_WORK(&dp->hpd_pulse_work, baikal_dp_hpd_pulse_work_func);
 
 	return 0;
@@ -1188,6 +1148,7 @@ error_encoder:
 static int baikal_dp_parse_of(struct baikal_dp *dp)
 {
 	struct baikal_dp_config *config = &dp->config;
+	struct device_node *node = dp->dev->of_node;
 
 	/* TODO implement */
 
@@ -1197,6 +1158,9 @@ static int baikal_dp_parse_of(struct baikal_dp *dp)
 	config->misc0 |= BAIKAL_DP_SRC0_STREAM_MISC0_MASK;
 	config->misc0 |= BAIKAL_DP_SRC0_BPC16_MASK;
 	//config->misc0 |= BAIKAL_DP_SRC0_BPC8_MASK;
+
+	config->audio_enabled =
+		of_property_read_bool(node, "baikal,audio-enable");
 
 	return 0;
 }
@@ -1216,7 +1180,6 @@ int baikal_dp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	dp->drm = drm;
-
 	dp->dpms = DRM_MODE_DPMS_OFF;
 	dp->status = connector_status_disconnected;
 	dp->dev = &pdev->dev;
@@ -1237,6 +1200,15 @@ int baikal_dp_probe(struct platform_device *pdev)
 	ret = baikal_dp_parse_of(dp);
 	if (ret < 0)
 		return ret;
+
+	if (dp->config.audio_enabled) {
+		dp->tx_audio_data =
+			devm_kzalloc(&pdev->dev,
+				     sizeof(struct baikal_dp_audio_data),
+				     GFP_KERNEL);
+	        if (!dp->tx_audio_data)
+			return -ENOMEM;
+	}
 
 	dp->phy[0] = devm_phy_get(dp->dev, "dp_phy");
 	if (IS_ERR(dp->phy[0]))
@@ -1623,18 +1595,13 @@ static int baikal_dp_aux_cmd_submit(struct baikal_dp *dp, u32 cmd, u16 addr,
 	bool is_read = (cmd & AUX_READ_BIT) ? true : false;
 	u32 reg, i;
 
-	/*
-	//reg = baikal_dp_read(dp->dp_base, BAIKAL_DP_INTERRUPT_SIGNAL_STATE);
-	reg = int_sig_state;
-	if (reg & BAIKAL_DP_INTERRUPT_SIGNAL_STATE_REQUEST)
-		return -EBUSY;
-	*/
-
 	baikal_dp_write(dp->dp_base, BAIKAL_DP_AUX_ADDRESS, addr);
 	if (!is_read)
 		for (i = 0; i < bytes; i++)
 			baikal_dp_write(dp->dp_base, BAIKAL_DP_AUX_WRITE_FIFO,
 					buf[i]);
+
+	int expected_cnt = (baikal_dp_read(dp->dp_base, BAIKAL_DP_AUX_REPLY_COUNT) + 1) % 0xff;
 
 	reg = cmd << BAIKAL_DP_AUX_COMMAND_CMD_SHIFT;
 	if (!buf || !bytes)
@@ -1645,16 +1612,14 @@ static int baikal_dp_aux_cmd_submit(struct baikal_dp *dp, u32 cmd, u16 addr,
 
 	/* Wait for reply to be delivered upto 2ms */
 	for (i = 0; ; i++) {
-		//reg = baikal_dp_read(dp->dp_base, BAIKAL_DP_INTERRUPT_SIGNAL_STATE);
-		reg = int_sig_state;
-		if (reg & BAIKAL_DP_INTERRUPT_STATE_REPLY)
+		reg = baikal_dp_read(dp->dp_base, BAIKAL_DP_AUX_REPLY_COUNT);
+		if (reg >= expected_cnt)
 			break;
 
-		if (reg & BAIKAL_DP_INTERRUPT_STATE_REPLY_TIMEOUT ||
-		    i == 2)
+		if (i == 4)
 			return -ETIMEDOUT;
 
-		usleep_range(1000, 1100);
+		usleep_range(500, 600);
 	}
 
 	reg = baikal_dp_read(dp->dp_base, BAIKAL_DP_AUX_REPLY_CODE);
@@ -1673,7 +1638,6 @@ static int baikal_dp_aux_cmd_submit(struct baikal_dp *dp, u32 cmd, u16 addr,
 		for (i = 0; i < bytes; i++)
 			buf[i] = baikal_dp_read(dp->dp_base, BAIKAL_DP_AUX_REPLY_DATA);
 	}
-	int_sig_state &= ~(BAIKAL_DP_INTERRUPT_STATE_REPLY + BAIKAL_DP_INTERRUPT_STATE_REPLY_TIMEOUT);
 
 	return 0;
 }

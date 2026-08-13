@@ -6,6 +6,7 @@
  *
  */
 
+#include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_gem_dma_helper.h>
@@ -66,6 +67,7 @@ static void baikal_vdu_l1000_primary_plane_atomic_update(struct drm_plane *plane
 	struct drm_plane_state *state = plane->state;
 	struct drm_crtc *crtc = state->crtc;
 	struct drm_framebuffer *fb = state->fb;
+	dma_addr_t fb_addr;
 	u16 x_start, x_end, y_start, y_end;
 	/*u8 cpp = fb->format->cpp[0];*/
 
@@ -80,7 +82,9 @@ static void baikal_vdu_l1000_primary_plane_atomic_update(struct drm_plane *plane
 	baikal_vdu_write(priv, PIPE_WINDOW_X(0), pipe_window_reg(x_start, x_end));
 	baikal_vdu_write(priv, PIPE_WINDOW_Y(0), pipe_window_reg(y_start, y_end));
 	gem = drm_fb_dma_get_gem_obj(fb, 0);
-	baikal_vdu_write(priv, PIPE_DMA_ADDR_0(0), gem->dma_addr + fb->offsets[0]);
+	fb_addr = gem->dma_addr + fb->offsets[0];
+	baikal_vdu_write(priv, PIPE_DMA_ADDR_0(0), fb_addr) ;
+	baikal_vdu_write(priv, PIPE_DMA_ADDR_1(0), fb_addr >> 32);
 	baikal_vdu_write(priv, PIPE_DMA_CTRL(0),
 			((PIPE_DMA_CTRL_WORDS(16) & PIPE_DMA_CTRL_WORDS_MASK) | \
 			 (PIPE_DMA_CTRL_OUTST(8) & PIPE_DMA_CTRL_OUTST_MASK)));
@@ -175,6 +179,7 @@ static void baikal_vdu_l1000_cursor_plane_atomic_update(struct drm_plane *plane,
 	struct drm_plane_state *state = plane->state;
 	struct drm_crtc *crtc = state->crtc;
 	struct drm_framebuffer *fb = state->fb;
+	dma_addr_t cursor_addr;
 	u32 reg;
 
 	if (!fb)
@@ -208,7 +213,9 @@ static void baikal_vdu_l1000_cursor_plane_atomic_update(struct drm_plane *plane,
 	}
 
 	gem = drm_fb_dma_get_gem_obj(fb, 0);
-	baikal_vdu_write(priv, CURSOR_CTRL_1, gem->dma_addr + fb->offsets[0]);
+	cursor_addr = gem->dma_addr + fb->offsets[0];
+	baikal_vdu_write(priv, CURSOR_CTRL_1, cursor_addr);
+	baikal_vdu_write(priv, CURSOR_CTRL_2, cursor_addr >> 32);
 
 	reg |= CURSOR_CTRL_0_ENABLE;
 	baikal_vdu_write(priv, CURSOR_CTRL_0, reg);

@@ -65,6 +65,7 @@ struct baikal_vdu_private {
 	int max_pix_clock;
 	int max_width;
 	int max_height;
+	bool enable_vblank;
 
 	/* Backlight */
 	struct gpio_desc *enable_gpio;

@@ -32,8 +32,8 @@ int dp1_off = 0;
 int no_edid = 0;
 int hw_cursor = 1;
 int max_pix_clock = 600000;
-int max_width = 3840;
-int max_height = 2160;
+int max_width = 2560;
+int max_height = 1440;
 
 extern const struct baikal_vdu_ops baikal_vdu_l1000_ops;
 
@@ -187,7 +187,7 @@ static int baikal_vdu_allocate_clk(struct baikal_vdu_private *priv)
 		dev_err(priv->drm->dev, "%s: unable to get %s, err %ld\n", priv->name, priv->pclk_name, PTR_ERR(priv->clk));
 		return PTR_ERR(priv->clk);
 	} else
-		return 0;
+		return clk_prepare_enable(priv->clk);
 }
 
 int baikal_vdu_resources_init(struct platform_device *pdev, struct baikal_vdu_private *priv)
@@ -246,6 +246,9 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 	struct baikal_vdu_crossbar *crossbar;
 	const struct baikal_vdu_ops *ops;
 	struct drm_device *drm;
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64)))
+		return -EIO;
 
 	crossbar = devm_drm_dev_alloc(dev, &vdu_drm_driver,
                   struct baikal_vdu_crossbar, drm);
