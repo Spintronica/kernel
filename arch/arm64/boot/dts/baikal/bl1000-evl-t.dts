@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Device tree source for Baikal Electronics EVL-L v1.0 board
+ * Device tree source for Baikal Electronics EVL-T v2.0 board
  * Copyright (C) 2026 Baikal Electronics, JSC
  */
 
@@ -9,8 +9,8 @@
 #include "bl1000.dtsi"
 
 / {
-	model = "Baikal Electronics EVL-L";
-	compatible = "baikal,evl-l", "baikal,bl1000";
+	model = "Baikal Electronics EVL-T";
+	compatible = "baikal,evl-t", "baikal,bl1000";
 
 	aliases {
 		ethernet0 = &sc_gmac;
@@ -34,33 +34,28 @@
 	};
 
 	chosen { };
+
+	sc_sound {
+		compatible = "baikal,snd-soc-baikal";
+		baikal,cpu-dai = <&sc_i2s0>;
+		baikal,codec = <&nau8822>;
+		baikal,codec-name = "nau8822";
+		baikal,dai-name = "HiFi-sc-sound";
+		baikal,stream-name = "HiFi-sc-sound";
+	};
 };
 
+#if 0 /* TODO: v2.0 */
 &ehsp_dp_phy {
 	status = "okay";
-};
-
-&ehsp_pcie0_p0 { /* Connected to M.2 Key M */
-	status = "okay";
-	num-lanes = <4>;
-};
-
-&ehsp_pcie1_p1 { /* Connected to PCIe-SATA controller */
-	status = "okay";
-	num-lanes = <1>;
-};
-
-&ehsp_pcie1_p2 { /* Connected to M.2 Key E */
-	status = "okay";
-	num-lanes = <1>;
 };
 
 &ehsp_vdu {
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
-	pinctrl = <&sc_lsp_pin19_gpio32>;
 };
+#endif
 
 &hsp_dmac {
 	status = "okay";
@@ -72,6 +67,35 @@
 
 &hsp_gpio32 {
 	status = "okay";
+};
+
+#if 0 /* TODO */
+&hsp_i2c0 { /* Connected to USB/DP MUX */
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin0_i2c0_scl>,
+		  <&hsp_lsp_pin1_i2c0_sda>;
+
+};
+#endif
+
+&hsp_i2c1 { /* Connected to USB HUB */
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin2_i2c1_scl>,
+		  <&hsp_lsp_pin3_i2c1_sda>;
+
+	usb_hub: usb-hub@2d {
+		compatible = "microchip,usb5744";
+		reg = <0x2d>;
+	};
+};
+
+&hsp_i2s0 { /* Connected to M.2 Key B */
+	status = "okay";
+	system-clock-frequency = <24000000>;
+	pinctrl = <&hsp_lsp_pin16_i2s0_sck>,
+		  <&hsp_lsp_pin17_i2s0_ws>,
+		  <&hsp_lsp_pin18_i2s0_sdo>,
+		  <&hsp_lsp_pin19_i2s0_sdi>;
 };
 
 &hsp_lsp_pinctrl0 {
@@ -96,7 +120,7 @@
 	status = "okay";
 };
 
-&hsp_usb0_l0 { /* Type C */
+&hsp_usb0_l0 { /* Connected to M.2 Key B */
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "super-speed";
@@ -104,12 +128,10 @@
 	phy-names = "cdns3,usb3-phy";
 };
 
-&hsp_usb0_l1 {
+&hsp_usb0_l1 { /* Connected to M.2 Key E */
 	status = "okay";
 	dr_mode = "host";
-	maximum-speed = "super-speed";
-	phys = <&hsp_usb0_phy10g_l1>;
-	phy-names = "cdns3,usb3-phy";
+	maximum-speed = "high-speed";
 };
 
 &hsp_usb0_phy10g {
@@ -117,10 +139,6 @@
 };
 
 &hsp_usb0_phy10g_l0 {
-	status = "okay";
-};
-
-&hsp_usb0_phy10g_l1 {
 	status = "okay";
 };
 
@@ -140,7 +158,7 @@
 	maximum-speed = "super-speed";
 	phys = <&hsp_usb1_phy10g_l0>;
 	phy-names = "cdns3,usb3-phy";
-	pinctrl = <&sc_lsp_pin31_gpio32>;
+	pinctrl = <&sc_lsp_pin1_gpio32>;
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -150,7 +168,7 @@
 		reg = <1>;
 		peer-hub = <&usb_hub_3_0>;
 		i2c-bus = <&usb_hub>;
-		reset-gpios = <&portc 31 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&portc 1 GPIO_ACTIVE_HIGH>;
 	};
 
 	/* 3.0 hub on port 2 */
@@ -159,14 +177,16 @@
 		reg = <2>;
 		peer-hub = <&usb_hub_2_0>;
 		i2c-bus = <&usb_hub>;
-		reset-gpios = <&portc 31 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&portc 1 GPIO_ACTIVE_HIGH>;
 	};
 };
 
-&hsp_usb1_l1 { /* Connected to M.2 Key E */
+&hsp_usb1_l1 { /* Type C */
 	status = "okay";
-	dr_mode = "host";
-	maximum-speed = "high-speed";
+	dr_mode = "otg";
+	maximum-speed = "super-speed";
+	phys = <&hsp_usb1_phy10g_l1>;
+	phy-names = "cdns3,usb3-phy";
 };
 
 &hsp_usb1_phy10g {
@@ -174,6 +194,10 @@
 };
 
 &hsp_usb1_phy10g_l0 {
+	status = "okay";
+};
+
+&hsp_usb1_phy10g_l1 {
 	status = "okay";
 };
 
@@ -197,7 +221,6 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
-	pinctrl = <&sc_lsp_pin20_gpio32>;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -209,6 +232,44 @@
 &hsp_venc {
 	status = "okay";
 };
+
+#if 1 /* TODO: v2.0 */
+&ehsp_cmu0_pll {
+	status = "disabled";
+};
+
+&ehsp_cmu0_clkch {
+	status = "disabled";
+};
+
+&ehsp_cmu1_pll {
+	status = "disabled";
+};
+
+&ehsp_cmu1_clkch {
+	status = "disabled";
+};
+
+&ehsp_cmu2_pll {
+	status = "disabled";
+};
+
+&ehsp_cmu2_clkch {
+	status = "disabled";
+};
+
+&ehsp_pvt_clkch {
+	status = "disabled";
+};
+
+&its0 {
+	status = "disabled";
+};
+
+&its1 {
+	status = "disabled";
+};
+#endif
 
 &mdio {
 	interrupt-parent = <&portf>;
@@ -230,6 +291,23 @@
 	status = "okay";
 };
 
+&sc_emmc1_sdhci {
+	status = "okay";
+	pinctrl = <&sc_emmc_mux_emmc1>,
+		  <&sc_emmc_hc1_1_8v>,
+		  <&sc_emmc_hc1_mem_pwrup>,
+		  <&sc_emmc_pu_hc1_cmd_dat_0_7>,
+		  <&sc_emmc_pd_hc1_dqs>;
+	bus-width = <8>;
+	no-sd;
+	no-sdio;
+	non-removable;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	sdhci-caps = <0x0 0x40000>;
+	sdhci-caps-mask = <0x8000000 0x580000>; /* TODO: mask DMA support */
+};
+
 &sc_emmc2_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc2>,
@@ -238,6 +316,7 @@
 		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
 		  <&sc_emmc_pd_hc2_dqs>;
 	bus-width = <4>;
+	sdhci-caps-mask = <0x8000000 0x580000>; /* TODO: mask DMA support */
 	wp-inverted;
 };
 
@@ -269,20 +348,30 @@
 	status = "okay";
 };
 
-&sc_hda {
-	status = "okay";
-	pinctrl = <&sc_lsp_pin14_hda_rst>,
-		  <&sc_lsp_pin15_hda_sync>,
-		  <&sc_lsp_pin16_hda_bclk>,
-		  <&sc_lsp_pin17_hda_sdo0>,
-		  <&sc_lsp_pin18_hda_sdi0>;
-};
-
-&sc_i2c1 { /* Connected to DIMM SPDs */
+&sc_i2c1 { /* Connected to M.2 Key E */
 	status = "okay";
 	pinctrl = <&sc_lsp_pin0_i2c1_smbalert>,
 		  <&sc_lsp_pin2_i2c1_scl>,
 		  <&sc_lsp_pin3_i2c1_sda>;
+};
+
+&sc_i2c2 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin4_i2c2_scl>,
+		  <&sc_lsp_pin5_i2c2_sda>;
+
+#if 0 /* TODO */
+	touchscreen@5d {
+		compatible = "goodix,gt9271";
+		reg = <0x5d>;
+		pinctrl = <&sc_lsp_pin14_gpio32>,
+			  <&sc_lsp_pin15_gpio32>;
+		interrupt-parent = <&portc>;
+		interrupts = <14 IRQ_TYPE_LEVEL_HIGH>;
+		irq-gpios = <&portc 14 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&portc 15 GPIO_ACTIVE_HIGH>;
+	};
+#endif
 };
 
 &sc_i2c3 {
@@ -291,15 +380,60 @@
 		  <&sc_lsp_pin7_i2c3_sda>,
 		  <&sc_lsp_pin29_gpio32>; /* Fingerprint */
 
+	nau8822: nau8822@1a {
+		compatible = "nuvoton,nau8822";
+		#sound-dai-cells = <1>;
+		reg = <0x1a>;
+	};
+
 	light-sensor@23 {
 		compatible = "liteon,ltr553";
 		reg = <0x23>;
 	};
 
-	usb_hub: usb-hub@2d {
-		compatible = "microchip,usb5744";
-		reg = <0x2d>;
+#if 0 /* TODO */
+	haptics@48 {
+		compatible = "dlg,da7280";
+		reg = <0x48>;
+		pinctrl = <&sc_lsp_pin26_gpio32>,
+			  <&sc_lsp_pin27_gpio32>;
+		interrupt-parent = <&portc>;
+		interrupts = <26 IRQ_TYPE_LEVEL_HIGH>;
+		dlg,actuator-type = "LRA";
+		dlg,dlg,const-op-mode = <1>;
+		dlg,dlg,periodic-op-mode = <1>;
+		dlg,nom-microvolt = <2000000>;
+		dlg,abs-max-microvolt = <2000000>;
+		dlg,imax-microamp = <170000>;
+		dlg,resonant-freq-hz = <180>;
+		dlg,impd-micro-ohms = <10500000>;
 	};
+
+	imu@68 {
+		compatible = "invensense,mpu9255";
+		reg = <0x68>;
+		pinctrl = <&sc_lsp_pin28_gpio32>,
+			  <&sc_lsp_pin30_gpio32>;
+		interrupt-parent = <&portc>;
+		interrupts = <28 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	pressure@77 {
+		compatible = "bosch,bmp085";
+		reg = <0x77>;
+		vddd-supply = <&foo>;
+		vdda-supply = <&bar>;
+	};
+#endif
+};
+
+&sc_i2s0 {
+	status = "okay";
+	system-clock-frequency = <24000000>;
+	pinctrl = <&sc_lsp_pin16_i2s0_sck>,
+		  <&sc_lsp_pin17_i2s0_ws>,
+		  <&sc_lsp_pin18_i2s0_sdo>,
+		  <&sc_lsp_pin19_i2s0_sdi>;
 };
 
 &sc_i2s1 { /* Connected to M.2 Key E */
@@ -327,22 +461,11 @@
 	status = "okay";
 	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
 	bus-width = <4>;
+	sdhci-caps-mask = <0x8000000 0x580000>;
 	max-frequency = <25000000>;
 };
 
-&sc_timer0 {
-	status = "okay";
-};
-
-&sc_timer1 {
-	status = "okay";
-};
-
-&sc_timer2 {
-	status = "okay";
-};
-
-&sc_timer3 {
+&sc_smmu {
 	status = "okay";
 };
 
@@ -370,9 +493,11 @@
 	status = "okay";
 };
 
+#if 0 /* TODO: v2.0 */
 &ehsp_pvt {
 	status = "okay";
 };
+#endif
 
 &ca710_pvt {
 	status = "okay";

@@ -5050,7 +5050,7 @@ static const struct of_device_id baikal_dp_phy_of_match[] = {
 	},
 	{}
 };
-MODULE_DEVICE_TABLE(of, cdns_torrent_phy_of_match);
+MODULE_DEVICE_TABLE(of, baikal_dp_phy_of_match);
 
 static struct platform_driver baikal_dp_phy_driver = {
 	.probe	= baikal_dp_phy_probe,

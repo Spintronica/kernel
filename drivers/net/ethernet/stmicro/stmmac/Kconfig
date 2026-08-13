@@ -70,7 +70,7 @@ config DWMAC_BAIKAL
 	tristate "Baikal GMAC/xGMAC support"
 	depends on OF
 	help
-	  Support for Baikal-M and Baikal-S (x)GMAC Ethernet controller.
+	  Support for Baikal SoCs (x)GMAC Ethernet controller.
 
 	  This selects the Baikal-M platform specific glue layer of the
 	  STMMAC driver.

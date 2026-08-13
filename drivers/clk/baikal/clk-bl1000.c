@@ -518,7 +518,7 @@ static void baikal_acpi_clk_remove(struct platform_device *pdev)
 }
 
 static const struct acpi_device_id baikal_acpi_clk_device_ids[] = {
-	{ "BKLE1001" },
+	{ "BKLE1002" },
 	{ }
 };
 

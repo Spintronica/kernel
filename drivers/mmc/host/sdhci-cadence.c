@@ -528,7 +528,7 @@ static void bl1000_write_w(struct sdhci_host *host, u16 val, int reg)
 #define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_REG			0x2008
 #define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_GATE_CFG_ALWAYS_ON	BIT(6)
 #define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_UNDERRUN_SUPPRESS		BIT(18)
-#define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_RD_DEL_SEL		GENMASK(24, 19)
+#define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_RD_DEL_SEL		GENMASK(23, 19)
 #define SDHCI_CDNS_PHY_GATE_LPBK_CTRL_SYNC_METHOD		BIT(31)
 
 #define SDHCI_CDNS_PHY_DLL_MASTER_CTRL_REG			0x200c
@@ -547,37 +547,53 @@ static void bl1000_write_w(struct sdhci_host *host, u16 val, int reg)
 
 #define SDHCI_CDNS_PHY_SW_RST_TIMEOUT	20000
 
-static int bl1000_dfi_init(struct sdhci_cdns_priv *priv, unsigned int timing,
+static int bl1000_pre_init(struct sdhci_cdns_priv *priv, unsigned int timing,
 			   unsigned int tune)
 {
 	u32 val;
 	u32 read_dqs_cmd_delay;
+	u32 tune_val = 0xff & ((tune << 8) / 40); /* N * 256 / 40 */
 
 	writel(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
 	val = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
 	read_dqs_cmd_delay = FIELD_GET(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY, val);
 
-	/* Assert PHY reset */
-	val = readl(priv->hrs_addr + SDHCI_CDNS_HRS09);
+	/* Assert DLL reset */
+	val  = readl(priv->hrs_addr + SDHCI_CDNS_HRS09);
 	val &= ~SDHCI_CDNS_HRS09_PHY_SW_RST;
 	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS09);
 
-	/* Select phy_dqs_timing_reg, enable phony dqs for card initialization */
+	/* Set DQS related timings */
 	writel(SDHCI_CDNS_PHY_DQS_TIMING_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
-	val = SDHCI_CDNS_PHY_DQS_TIMING_USE_EXT_LPBK_DQS |
-	      SDHCI_CDNS_PHY_DQS_TIMING_USE_LPBK_DQS;
-	if (timing != MMC_TIMING_MMC_HS400)
-		val |= SDHCI_CDNS_PHY_DQS_TIMING_USE_PHONY_DQS |
-		       SDHCI_CDNS_PHY_DQS_TIMING_USE_PHONY_DQS_CMD;
+	switch (timing) {
+	case MMC_TIMING_MMC_HS400:
+		if (priv->enhanced_strobe)
+			val = SDHCI_CDNS_PHY_DQS_TIMING_USE_LPBK_DQS |
+			      SDHCI_CDNS_PHY_DQS_TIMING_USE_EXT_LPBK_DQS;
+		else
+			val = SDHCI_CDNS_PHY_DQS_TIMING_USE_PHONY_DQS_CMD |
+			      SDHCI_CDNS_PHY_DQS_TIMING_USE_LPBK_DQS	  |
+			      SDHCI_CDNS_PHY_DQS_TIMING_USE_EXT_LPBK_DQS;
+		break;
+	default:
+		val = SDHCI_CDNS_PHY_DQS_TIMING_USE_PHONY_DQS_CMD |
+		      SDHCI_CDNS_PHY_DQS_TIMING_USE_PHONY_DQS	  |
+		      SDHCI_CDNS_PHY_DQS_TIMING_USE_LPBK_DQS	  |
+		      SDHCI_CDNS_PHY_DQS_TIMING_USE_EXT_LPBK_DQS;
+		break;
+	}
+
 	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS05);
 
+	/* Set gate and loopback control related timings */
 	writel(SDHCI_CDNS_PHY_GATE_LPBK_CTRL_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
 	val = SDHCI_CDNS_PHY_GATE_LPBK_CTRL_SYNC_METHOD                |
-	      FIELD_PREP(SDHCI_CDNS_PHY_GATE_LPBK_CTRL_RD_DEL_SEL, 52) |
+	      FIELD_PREP(SDHCI_CDNS_PHY_GATE_LPBK_CTRL_RD_DEL_SEL, 20) |
 	      SDHCI_CDNS_PHY_GATE_LPBK_CTRL_UNDERRUN_SUPPRESS          |
 	      SDHCI_CDNS_PHY_GATE_LPBK_CTRL_GATE_CFG_ALWAYS_ON;
 	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS05);
 
+	/* Set master DLL logic */
 	writel(SDHCI_CDNS_PHY_DLL_MASTER_CTRL_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
 	val  = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
 	val &= ~(SDHCI_CDNS_PHY_DLL_MASTER_CTRL_PHASE_DETECT_SEL |
@@ -591,21 +607,20 @@ static int bl1000_dfi_init(struct sdhci_cdns_priv *priv, unsigned int timing,
 		val |= SDHCI_CDNS_PHY_DLL_MASTER_CTRL_DLL_BYPASS_MODE;
 	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS05);
 
+	/* Set slave DLL logic */
 	writel(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
 	if (timing == MMC_TIMING_MMC_HS400)
 		val = FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY, 64)  |
 		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WR_DELAY, 75)    |
 		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WRDQS_DELAY, 77) |
-		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY, read_dqs_cmd_delay);
+		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY,
+				 priv->enhanced_strobe ? 64 : read_dqs_cmd_delay);
 	else if (timing == MMC_TIMING_MMC_HS200 ||
-		 timing == MMC_TIMING_UHS_SDR104) {
-		uint32_t tune_val = 0xFF & ((tune << 8) / 40); // N * 256 / 40
-
+		 timing == MMC_TIMING_UHS_SDR104)
 		val = FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY, tune_val) |
 		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WR_DELAY, 77)         |
 		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WRDQS_DELAY, 77)      |
 		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY, tune_val);
-	}
 	else if (timing == MMC_TIMING_UHS_DDR50)
 		val = FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_DELAY, 64)  |
 		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_CLK_WR_DELAY, 32)    |
@@ -618,8 +633,8 @@ static int bl1000_dfi_init(struct sdhci_cdns_priv *priv, unsigned int timing,
 		      FIELD_PREP(SDHCI_CDNS_PHY_DLL_SLAVE_CTRL_READ_DQS_CMD_DELAY, 0);
 	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS05);
 
-	/* Deassert PHY reset */
-	val = readl(priv->hrs_addr + SDHCI_CDNS_HRS09);
+	/* Deassert DLL reset */
+	val  = readl(priv->hrs_addr + SDHCI_CDNS_HRS09);
 	val |= SDHCI_CDNS_HRS09_PHY_SW_RST;
 	writel(val, priv->hrs_addr + SDHCI_CDNS_HRS09);
 	if (readl_poll_timeout(priv->hrs_addr + SDHCI_CDNS_HRS09, val,
@@ -627,6 +642,7 @@ static int bl1000_dfi_init(struct sdhci_cdns_priv *priv, unsigned int timing,
 			       SDHCI_CDNS_PHY_SW_RST_TIMEOUT))
 		return -ETIMEDOUT;
 
+	/* Set DQ related timings */
 	writel(SDHCI_CDNS_PHY_DQ_TIMING_REG, priv->hrs_addr + SDHCI_CDNS_HRS04);
 	val  = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
 	val &= ~(SDHCI_CDNS_PHY_DQ_TIMING_IO_MASK_ALWAYS_ON |
@@ -730,8 +746,8 @@ static void bl1000_set_uhs_signaling(struct sdhci_host *host,
 	struct sdhci_cdns_priv *priv = sdhci_cdns_priv(host);
 	u16 ctrl_2;
 
-	if (bl1000_dfi_init(priv, timing, 0)) {
-		dev_err(mmc_dev(host->mmc), "%s: DFI init error\n", __func__);
+	if (bl1000_pre_init(priv, timing, 0)) {
+		dev_err(mmc_dev(host->mmc), "%s: pre-initialization sequence error\n", __func__);
 		return;
 	}
 
@@ -772,7 +788,7 @@ static int bl1000_execute_tuning(struct sdhci_host *host, u32 opcode)
 		return 0;
 
 	for (i = 0; i < SDHCI_CDNS_MAX_TUNING_LOOP; i++) {
-		int ret = bl1000_dfi_init(priv, MMC_TIMING_MMC_HS200, i);
+		int ret = bl1000_pre_init(priv, MMC_TIMING_MMC_HS200, i);
 		if (ret)
 			return ret;
 
@@ -792,7 +808,7 @@ static int bl1000_execute_tuning(struct sdhci_host *host, u32 opcode)
 		return -EIO;
 	}
 
-	return bl1000_dfi_init(priv, MMC_TIMING_MMC_HS200, end_of_streak - max_streak / 2);
+	return bl1000_pre_init(priv, MMC_TIMING_MMC_HS200, end_of_streak - max_streak / 2);
 }
 
 static const struct sdhci_ops sdhci_cdns_bl1000_ops = {

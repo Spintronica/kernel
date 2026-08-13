@@ -90,6 +90,7 @@ extern const struct pci_ecam_ops tegra194_pcie_ops; /* Tegra194 PCIe */
 extern const struct pci_ecam_ops loongson_pci_ecam_ops; /* Loongson PCIe */
 extern const struct pci_ecam_ops baikal_m_pcie_ecam_ops; /* Baikal-M Synopsys DesignWare PCIe */
 extern const struct pci_ecam_ops baikal_s_pcie_ecam_ops; /* Baikal-S Synopsys DesignWare PCIe */
+extern const struct pci_ecam_ops baikal_l_pcie_ecam_ops; /* Baikal-L Synopsys DesignWare PCIe */
 #endif
 
 #if IS_ENABLED(CONFIG_PCI_HOST_COMMON)

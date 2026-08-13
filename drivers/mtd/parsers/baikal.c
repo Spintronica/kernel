@@ -70,8 +70,8 @@ static int baikal_add_mtd_partitions(struct device *dev, void *unused)
 			data->nr_parts = nr_parts;
 			dev->platform_data = data;
 
-			ret = driver_set_override(dev, &to_spi_device(dev)->driver_override,
-						  "spi-nor", strlen("spi-nor"));
+			ret = __device_set_driver_override(dev, "spi-nor",
+							   strlen("spi-nor"));
 			if (ret) {
 				dev->platform_data = NULL;
 				kfree(data);

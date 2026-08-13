@@ -213,7 +213,10 @@ static int baikal_vdpu_hw_init(struct hantro_dev *vpu)
 
 static void baikal_vdpu_hw_deinit(struct hantro_dev *vpu)
 {
-	dma_free_coherent(vpu->dev, BAIKAL_VDPU_MAX_TILE_INFO_SIZE, vpu->priv, vpu->dma_handle);
+	dma_free_coherent(vpu->dev,
+			  BAIKAL_VDPU_MAX_TILE_INFO_SIZE + BAIKAL_VDPU_CMDBUF_SIZE +
+			  BAIKAL_VDPU_IRQ_CMDBUF_SIZE + BAIKAL_VDPU_READ_CMDBUF_SIZE,
+			  vpu->priv, vpu->dma_handle);
 }
 
 static const char * const baikal_vdpu_clk_names[] = {
@@ -240,19 +243,6 @@ const struct hantro_variant baikal_vdpu_variant = {
 };
 
 static const struct hantro_fmt baikal_vepu_enc_fmts[] = {
-	{
-		.fourcc = V4L2_PIX_FMT_NV12,
-		.codec_mode = HANTRO_MODE_NONE,
-		.enc_fmt = ROCKCHIP_VPU_ENC_FMT_YUV420SP,
-		.frmsize = {
-			.min_width = 96,
-			.max_width = 8176,
-			.step_width = 4,
-			.min_height = 32,
-			.max_height = 8176,
-			.step_height = 4,
-		},
-	},
 	{
 		.fourcc = V4L2_PIX_FMT_YUV420M,
 		.codec_mode = HANTRO_MODE_NONE,
@@ -281,10 +271,10 @@ static const struct hantro_fmt baikal_vepu_enc_fmts[] = {
 		.frmsize = {
 			.min_width = 96,
 			.max_width = 8176,
-			.step_width = 4,
+			.step_width = 16,
 			.min_height = 32,
 			.max_height = 8176,
-			.step_height = 4,
+			.step_height = 16,
 		},
 	},
 	{
@@ -294,10 +284,10 @@ static const struct hantro_fmt baikal_vepu_enc_fmts[] = {
 		.frmsize = {
 			.min_width = 144,
 			.max_width = 4080,
-			.step_width = 4,
+			.step_width = 16,
 			.min_height = 96,
 			.max_height = 4080,
-			.step_height = 4,
+			.step_height = 16,
 		},
 	},
 	{
@@ -307,10 +297,10 @@ static const struct hantro_fmt baikal_vepu_enc_fmts[] = {
 		.frmsize = {
 			.min_width = 144,
 			.max_width = 4080,
-			.step_width = 4,
+			.step_width = 16,
 			.min_height = 96,
 			.max_height = 4080,
-			.step_height = 4,
+			.step_height = 16,
 		},
 	},
 };
@@ -322,7 +312,7 @@ static void baikal_vepu_reset(struct hantro_ctx *ctx)
 	vepu_write(vpu, H1_REG_INTERRUPT_DIS_BIT, H1_REG_INTERRUPT);
 	vepu_write(vpu, 0, H1_REG_ENC_CTRL);
 	vepu_write(vpu, 0, H1_REG_AXI_CTRL);
-	vepu_write(vpu, ~H1_REG_INTERRUPT_DIS_BIT, H1_REG_INTERRUPT);
+	vepu_write(vpu, (uint32_t)~H1_REG_INTERRUPT_DIS_BIT, H1_REG_INTERRUPT);
 }
 
 static const struct hantro_codec_ops baikal_vepu_codec_ops[] = {
@@ -357,8 +347,10 @@ static irqreturn_t baikal_vepu_irq(int irq, void *dev_id)
 	state = (status & H1_REG_INTERRUPT_FRAME_RDY) ?
 		VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR;
 
-	vepu_write(vpu, ~H1_REG_INTERRUPT_DIS_BIT, H1_REG_INTERRUPT);
+	vepu_write(vpu, H1_REG_INTERRUPT_DIS_BIT, H1_REG_INTERRUPT);
+	vepu_write(vpu, 0, H1_REG_ENC_CTRL);
 	vepu_write(vpu, 0, H1_REG_AXI_CTRL);
+	vepu_write(vpu, (uint32_t)~H1_REG_INTERRUPT_DIS_BIT, H1_REG_INTERRUPT);
 
 	hantro_irq_done(vpu, state);
 

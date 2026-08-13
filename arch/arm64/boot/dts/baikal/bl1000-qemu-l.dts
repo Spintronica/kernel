@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Device tree source for Baikal Electronics QEMU-L virtual platform
- * Copyright (C) 2022-2025 Baikal Electronics, JSC
+ * Copyright (C) 2022-2026 Baikal Electronics, JSC
  */
 
 /dts-v1/;
@@ -29,7 +29,7 @@
 	status = "okay";
 };
 
-&sc_emmc1 {
+&sc_emmc1_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc1>;
 	bus-width = <8>;

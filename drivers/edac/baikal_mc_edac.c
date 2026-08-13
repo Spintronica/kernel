@@ -126,6 +126,10 @@ static void baikal_edac_timer_callback(struct timer_list *timer)
 				     readl(priv->baseaddr + DDRC_ECCCSYN1), 0, -1, -1, priv->msg, "");
 
 		ce_cntr = ecccntr & 0xffff;
+
+		writel(ECCCTL_ENABLE_INTR | ECCCTL_CLEAR_CERR,
+		       priv->baseaddr + DDRC_ECCCLR);
+
 	}
 
 	if (eccstat & ECCSTAT_UNCORR_ERR) {
@@ -145,11 +149,10 @@ static void baikal_edac_timer_callback(struct timer_list *timer)
 				     readl(priv->baseaddr + DDRC_ECCUSYN1), 0, -1, -1, priv->msg, "");
 
 		ue_cntr = ecccntr >> 16;
-	}
 
-	if (regaddr0 || regaddr1) {
 		writel(ECCCTL_ENABLE_INTR | ECCCTL_CLEAR_UERR,
 		       priv->baseaddr + DDRC_ECCCLR);
+
 	}
 
 	mod_timer(timer, jiffies + HZ);

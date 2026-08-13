@@ -34,11 +34,11 @@ static struct clk_lookup *pvt_clk_lookup;
  * and the thresholds bit fields.
  */
 static const struct pvt_sensor_info pvt_info[] = {
-	PVT_SENSOR_INFO(0, "CPU Core Temperature", hwmon_temp, TEMP, TTHRES),
-	PVT_SENSOR_INFO(0, "CPU Core Voltage", hwmon_in, VOLT, VTHRES),
-	PVT_SENSOR_INFO(1, "CPU Core Low-Vt", hwmon_in, LVT, LTHRES),
-	PVT_SENSOR_INFO(2, "CPU Core High-Vt", hwmon_in, HVT, HTHRES),
-	PVT_SENSOR_INFO(3, "CPU Core Standard-Vt", hwmon_in, SVT, STHRES),
+	PVT_SENSOR_INFO(0, "Temperature", hwmon_temp, TEMP, TTHRES),
+	PVT_SENSOR_INFO(0, "Voltage", hwmon_in, VOLT, VTHRES),
+	PVT_SENSOR_INFO(1, "Low-Vt", hwmon_in, LVT, LTHRES),
+	PVT_SENSOR_INFO(2, "High-Vt", hwmon_in, HVT, HTHRES),
+	PVT_SENSOR_INFO(3, "Standard-Vt", hwmon_in, SVT, STHRES),
 };
 
 static const struct hwmon_channel_info * const pvt_channel_info[] = {
