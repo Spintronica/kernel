@@ -578,7 +578,7 @@ baikal_dp_connector_detect(struct drm_connector *connector, bool force)
 		ret = drm_dp_dpcd_read(&dp->aux, DP_DP13_DPCD_REV, dpcd_ext,
 				       sizeof(dpcd_ext));
 		if (ret < 0) {
-			dev_info(dp->dev, "DPCD EXT read fails");
+			dev_dbg(dp->dev, "DPCD EXT read fails");
 			goto disconnected;
 		}
 	}
