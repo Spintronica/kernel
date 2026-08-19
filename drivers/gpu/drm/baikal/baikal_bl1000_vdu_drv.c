@@ -32,8 +32,8 @@ int dp1_off = 0;
 int no_edid = 0;
 int hw_cursor = 1;
 int max_pix_clock = 600000;
-int max_width = 2560;
-int max_height = 1440;
+int max_width = 3840;
+int max_height = 2160;
 
 extern const struct baikal_vdu_ops baikal_vdu_l1000_ops;
 
