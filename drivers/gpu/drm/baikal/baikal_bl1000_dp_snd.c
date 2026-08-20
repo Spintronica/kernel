@@ -252,7 +252,7 @@ void baikal_dp_pcm_push_tx(struct baikal_dp_aud_dev *dev)
 				BAIKAL_DP_GP_HOST_TIMER_ENABLE |
 				BAIKAL_DP_GP_HOST_TIMER_RELOAD |
 				BAIKAL_DP_GP_HOST_TIMER_INTR |
-				dev->timer_interval);
+				dev->timer_interval - 1);
 	}
 	rcu_read_unlock();
 }
@@ -655,7 +655,7 @@ static int baikal_dp_dai_hw_params(struct snd_pcm_substream *substream,
 				BAIKAL_DP_GP_HOST_TIMER_ENABLE |
 				BAIKAL_DP_GP_HOST_TIMER_RELOAD |
 				BAIKAL_DP_GP_HOST_TIMER_INTR |
-				aud_dev->timer_interval);
+				aud_dev->timer_interval - 1);
 	}
 
 	return 0;
