@@ -53,7 +53,7 @@
 		pwr {
 			label = "PWR Button";
 			linux,code = <116>;
-			gpios = <&porte 27 GPIO_ACTIVE_LOW>;
+			gpios = <&portf 15 GPIO_ACTIVE_LOW>;
 			wakeup-source;
 			wakeup-event-action = <EV_ACT_DEASSERTED>;
 		};
@@ -149,6 +149,10 @@
 	baikal,awqos = <10>;
 };
 
+&hsp_smmu {
+	status = "okay";
+};
+
 &hsp_vdec {
 	status = "okay";
 	baikal,arqos = <14>;
@@ -160,6 +164,7 @@
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
 	reset-gpios = <&porte 16 GPIO_ACTIVE_LOW>;
+	baikal,audio-enable;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -210,6 +215,10 @@
 };
 
 &sc_gpio32 {
+	status = "okay";
+};
+
+&hsp_gpio32 {
 	status = "okay";
 };
 
@@ -269,13 +278,13 @@ et124\n\
 [pincfg]\n\
 0x0a 0x0221413f\n\
 0x0b 0x40000000\n\
-0x0c 0x02a19120\n\
+0x0c 0x02a19020\n\
 0x0d 0x40000000\n\
-0x0e 0x01813121\n\
+0x0e 0x01813021\n\
 0x0f 0x40000000\n\
 0x11 0x40000000\n\
-0x1f 0x40000000\n\
-0x20 0x40000000\n\
+0x1f 0x90460060\n\
+0x20 0x90460070\n\
 [verb]\n\
 0x18 0xf01 0x04\n";
 };
@@ -289,6 +298,7 @@ et124\n\
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
 	reset-gpios = <&porte 18 GPIO_ACTIVE_LOW>;
+	baikal,audio-enable;
 };
 
 &hsp_usb1_phy20_l0 {
@@ -418,5 +428,21 @@ et124\n\
 	status = "okay";
 	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
 		  <&sc_lsp_pin11_uart1_txd>;
+};
+
+&sc_timer0 {
+	status = "okay";
+};
+
+&sc_timer1 {
+	status = "okay";
+};
+
+&sc_timer2 {
+	status = "okay";
+};
+
+&sc_timer3 {
+	status = "okay";
 };
 

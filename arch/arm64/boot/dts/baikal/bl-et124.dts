@@ -144,6 +144,10 @@
 	baikal,awqos = <10>;
 };
 
+&hsp_smmu {
+	status = "okay";
+};
+
 &hsp_vdec {
 	status = "okay";
 	baikal,arqos = <14>;
@@ -154,6 +158,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	baikal,audio-enable;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -282,6 +287,7 @@ et124\n\
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	baikal,audio-enable;
 };
 
 &hsp_usb1_phy20_l0 {
@@ -411,5 +417,21 @@ et124\n\
 	status = "okay";
 	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
 		  <&sc_lsp_pin11_uart1_txd>;
+};
+
+&sc_timer0 {
+	status = "okay";
+};
+
+&sc_timer1 {
+	status = "okay";
+};
+
+&sc_timer2 {
+	status = "okay";
+};
+
+&sc_timer3 {
+	status = "okay";
 };
 

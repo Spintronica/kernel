@@ -109,6 +109,10 @@
 	baikal,awqos = <10>;
 };
 
+&hsp_smmu {
+	status = "okay";
+};
+
 &hsp_vdec {
 	status = "okay";
 	baikal,arqos = <14>;
@@ -119,6 +123,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	baikal,audio-enable;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -140,7 +145,7 @@
 	};
 };
 
-&sc_emmc1 {
+&sc_emmc1_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc1>,
 		  <&sc_emmc_hc1_1_8v>,
@@ -150,7 +155,7 @@
 	bus-width = <4>;
 };
 
-&sc_emmc2 {
+&sc_emmc2_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc2>,
 		  <&sc_emmc_hc2_1_8v>,
@@ -270,6 +275,7 @@ et114\n\
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	baikal,audio-enable;
 };
 
 &hsp_usb1_l0 {
@@ -377,5 +383,21 @@ et114\n\
 	status = "okay";
 	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
 		  <&sc_lsp_pin11_uart1_txd>;
+};
+
+&sc_timer0 {
+	status = "okay";
+};
+
+&sc_timer1 {
+	status = "okay";
+};
+
+&sc_timer2 {
+	status = "okay";
+};
+
+&sc_timer3 {
+	status = "okay";
 };
 
