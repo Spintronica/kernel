@@ -39,9 +39,9 @@ package:
     - amd64
   script:
     - |
-      GIT_TAG=$(git describe --tags --no-abbrev)
-      TARNAME="${CI_COMMIT_BRANCH}_${CI_COMMIT_SHORT_SHA}.tar"
-      FULL_PATH="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/kernel/${GIT_TAG}/${TARNAME}"
+      COMMIT_DATE=$(echo $CI_COMMIT_TIMESTAMP | cut -d'T' -f1)
+      TARNAME="${CI_COMMIT_BRANCH}_${COMMIT_DATE}_${CI_COMMIT_SHORT_SHA}.tar"
+      FULL_PATH="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/kernel/${CI_COMMIT_BRANCH}/${TARNAME}"
       echo "Full path: ${FULL_PATH}"
       tar cf - -C release . | curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file - ${FULL_PATH}
 
