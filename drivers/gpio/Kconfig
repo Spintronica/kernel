@@ -201,6 +201,12 @@ config GPIO_RASPBERRYPI_EXP
 	  Turn on GPIO support for the expander on Raspberry Pi 3 boards, using
 	  the firmware mailbox to communicate with VideoCore on BCM283x chips.
 
+config GPIO_BAIKAL_SPI_CS
+	tristate "Baikal SPI CS manual control"
+	depends on ARCH_BAIKAL || COMPILE_TEST
+	help
+	  Enable manual control of SPI Chip Select signals.
+
 config GPIO_BCM_KONA
 	bool "Broadcom Kona GPIO"
 	depends on ARCH_BCM_MOBILE || COMPILE_TEST

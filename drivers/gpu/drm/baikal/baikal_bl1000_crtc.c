@@ -11,9 +11,11 @@
  * Implementation of the CRTC functions for Baikal Electronics BE-L1000 VDU driver
  */
 
-#include <drm/drm_vblank.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+
+#include <drm/drm_atomic.h>
+#include <drm/drm_vblank.h>
 
 #include "baikal_bl1000_dp.h"
 #include "baikal_bl1000_drm.h"
@@ -23,7 +25,7 @@ static int baikal_enable_vblank(struct drm_crtc *crtc)
 {
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
 
-	baikal_vdu_write(priv, INT_MASK, ~(INT_VFP_START | INT_ANY_ERROR));
+	priv->enable_vblank = true;
 	return 0;
 }
 
@@ -31,8 +33,7 @@ static void baikal_disable_vblank(struct drm_crtc *crtc)
 {
 	struct baikal_vdu_private *priv = crtc_to_baikal_vdu(crtc);
 
-	baikal_vdu_write(priv, INT_CTRL, ~0);
-	baikal_vdu_write(priv, INT_MASK, ~INT_ANY_ERROR);
+	priv->enable_vblank = false;
 }
 
 static u32 baikal_get_vblank_counter(struct drm_crtc *crtc)
@@ -41,6 +42,8 @@ static u32 baikal_get_vblank_counter(struct drm_crtc *crtc)
 
 	return atomic_read(&priv->vblank_counter);
 }
+
+void baikal_dp_vblank_handler(struct baikal_dp *dp);
 
 irqreturn_t baikal_vdu_l1000_irq(int irq, void *data)
 {
@@ -61,10 +64,12 @@ irqreturn_t baikal_vdu_l1000_irq(int irq, void *data)
 	irq_stat = readl(priv->regs + INT_STAT);
 	raw_stat = readl(priv->regs + INT_CTRL);
 
-	if (irq_stat & INT_VFP_START) {
-		priv->counters[11]++;
-		atomic_inc(&priv->vblank_counter);
-		drm_crtc_handle_vblank(&priv->crtc);
+	if (irq_stat & INT_VS_START) {
+		if (priv->enable_vblank) {
+			priv->counters[11]++;
+			atomic_inc(&priv->vblank_counter);
+			drm_crtc_handle_vblank(&priv->crtc);
+		}
 		status = IRQ_HANDLED;
 	}
 
@@ -112,17 +117,17 @@ irqreturn_t baikal_vdu_l1000_irq(int irq, void *data)
 
 static bool baikal_vdu_crtc_is_clk_enabled(struct baikal_vdu_private *priv)
 {
-	return __clk_is_enabled(clk_get_parent(priv->clk));
+	return __clk_is_enabled(priv->clk);
 }
 
 static void baikal_vdu_crtc_clk_enable(struct baikal_vdu_private *priv)
 {
-	clk_prepare_enable(clk_get_parent(priv->clk));
+	clk_prepare_enable(priv->clk);
 }
 
 static void baikal_vdu_crtc_clk_disable(struct baikal_vdu_private *priv)
 {
-	clk_disable_unprepare(clk_get_parent(priv->clk));
+	clk_disable_unprepare(priv->clk);
 }
 
 static int baikal_vdu_crtc_set_rate(struct baikal_vdu_private *priv, u32 rate)
@@ -149,7 +154,7 @@ static void baikal_vdu_crtc_helper_mode_set_nofb(struct drm_crtc *crtc)
 	const struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	unsigned long rate;
 	unsigned int val;
-	int ret;
+	int ret = 0;
 
 	drm_mode_debug_printmodeline(mode);
 
@@ -265,7 +270,6 @@ const struct drm_crtc_funcs baikal_vdu_l1000_crtc_funcs = {
 	.page_flip = drm_atomic_helper_page_flip,
 	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_crtc_destroy_state,
-	.get_vblank_counter = baikal_get_vblank_counter,
 	.enable_vblank = baikal_enable_vblank,
 	.disable_vblank = baikal_disable_vblank,
 };

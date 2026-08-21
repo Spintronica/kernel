@@ -46,10 +46,12 @@
 };
 
 &ehsp_pcie1_p1 { /* Connected to PCIe-SATA controller */
+	status = "okay";
 	num-lanes = <1>;
 };
 
 &ehsp_pcie1_p2 { /* Connected to M.2 Key E */
+	status = "okay";
 	num-lanes = <1>;
 };
 
@@ -57,6 +59,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	pinctrl = <&sc_lsp_pin19_gpio32>;
 };
 
 &hsp_dmac {
@@ -87,6 +90,10 @@
 	status = "okay";
 	baikal,arqos = <10>;
 	baikal,awqos = <10>;
+};
+
+&hsp_smmu {
+	status = "okay";
 };
 
 &hsp_usb0_l0 { /* Type C */
@@ -143,7 +150,7 @@
 		reg = <1>;
 		peer-hub = <&usb_hub_3_0>;
 		i2c-bus = <&usb_hub>;
-		reset-gpios = <&portc 31 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&portc 31 GPIO_ACTIVE_HIGH>;
 	};
 
 	/* 3.0 hub on port 2 */
@@ -152,7 +159,7 @@
 		reg = <2>;
 		peer-hub = <&usb_hub_2_0>;
 		i2c-bus = <&usb_hub>;
-		reset-gpios = <&portc 31 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&portc 31 GPIO_ACTIVE_HIGH>;
 	};
 };
 
@@ -190,6 +197,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	pinctrl = <&sc_lsp_pin20_gpio32>;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -205,7 +213,12 @@
 &mdio {
 	interrupt-parent = <&portf>;
 	interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
-	pinctrl = <&hsp_lsp_pin15_gpio32>;
+	pinctrl = <&hsp_lsp_pin14_gpio32>,
+		  <&hsp_lsp_pin15_gpio32>;
+
+	reset-gpios = <&portf 14 GPIO_ACTIVE_LOW>;
+	reset-delay-us = <10000>;
+	reset-post-delay-us = <10000>;
 
 	ethphy: ethernet-phy@1 {
 		compatible = "ethernet-phy-ieee802.3-c22";
@@ -217,14 +230,14 @@
 	status = "okay";
 };
 
-&sc_emmc2 {
+&sc_emmc2_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc2>,
 		  <&sc_emmc_hc2_1_8v>,
 		  <&sc_emmc_hc2_mem_pwrup>,
 		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
 		  <&sc_emmc_pd_hc2_dqs>;
-	bus-width = <8>;
+	bus-width = <4>;
 	wp-inverted;
 };
 
@@ -242,14 +255,10 @@
 
 &sc_gmac {
 	status = "okay";
-	pinctrl = <&sc_gmac_sdio_bit0_mode1>,
-		  <&hsp_lsp_pin14_gpio32>;
+	pinctrl = <&sc_gmac_sdio_bit0_mode1>;
 
 	phy-handle = <&ethphy>;
-	phy-mode = "rgmii";
-
-	snps,reset-gpios = <&portf 14 GPIO_ACTIVE_LOW>;
-	reset-delay-us = <0 10200 1000>;
+	phy-mode = "rgmii-rxid";
 };
 
 &sc_gmac_sdio_pinctrl {
@@ -266,9 +275,7 @@
 		  <&sc_lsp_pin15_hda_sync>,
 		  <&sc_lsp_pin16_hda_bclk>,
 		  <&sc_lsp_pin17_hda_sdo0>,
-		  <&sc_lsp_pin18_hda_sdi0>,
-		  <&sc_lsp_pin19_hda_sdo1>,
-		  <&sc_lsp_pin20_hda_sdi1>;
+		  <&sc_lsp_pin18_hda_sdi0>;
 };
 
 &sc_i2c1 { /* Connected to DIMM SPDs */
@@ -281,7 +288,8 @@
 &sc_i2c3 {
 	status = "okay";
 	pinctrl = <&sc_lsp_pin6_i2c3_scl>,
-		  <&sc_lsp_pin7_i2c3_sda>;
+		  <&sc_lsp_pin7_i2c3_sda>,
+		  <&sc_lsp_pin29_gpio32>; /* Fingerprint */
 
 	light-sensor@23 {
 		compatible = "liteon,ltr553";
@@ -315,11 +323,27 @@
 	status = "okay";
 };
 
-&sc_sdio { /* Connected to M.2 Key E */
+&sc_sdio_sdhci { /* Connected to M.2 Key E */
 	status = "okay";
 	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
 	bus-width = <4>;
 	max-frequency = <25000000>;
+};
+
+&sc_timer0 {
+	status = "okay";
+};
+
+&sc_timer1 {
+	status = "okay";
+};
+
+&sc_timer2 {
+	status = "okay";
+};
+
+&sc_timer3 {
+	status = "okay";
 };
 
 &sc_uart1 { /* Connected to M.2 Key E */

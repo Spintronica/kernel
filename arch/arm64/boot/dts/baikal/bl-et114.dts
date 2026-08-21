@@ -18,6 +18,8 @@
 	aliases {
 		ethernet0 = &sc_gmac;
 		fru = &fru;
+		evdu = &ehsp_vdu;
+		vdu = &hsp_vdu;
 	};
 
 	cpus {
@@ -107,6 +109,10 @@
 	baikal,awqos = <10>;
 };
 
+&hsp_smmu {
+	status = "okay";
+};
+
 &hsp_vdec {
 	status = "okay";
 	baikal,arqos = <14>;
@@ -117,6 +123,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	baikal,audio-enable;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -130,16 +137,15 @@
 };
 
 &mdio {
-	interrupt-parent = <&portf>;
-	interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
-
 	ethphy: ethernet-phy@3 {
 		compatible = "ethernet-phy-ieee802.3-c22";
 		reg = <0x3>;
+		interrupt-parent = <&portf>;
+		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
-&sc_emmc1 {
+&sc_emmc1_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc1>,
 		  <&sc_emmc_hc1_1_8v>,
@@ -147,15 +153,9 @@
 		  <&sc_emmc_pu_hc1_cmd_dat_0_7>,
 		  <&sc_emmc_pd_hc1_dqs>;
 	bus-width = <4>;
-	no-sd;
-	no-sdio;
-	non-removable;
-	mmc-ddr-1_8v;
-	sdhci-caps-mask = <0x00000002 0x03000000>;
-	sdhci-caps = <0x0 0x40000>;
 };
 
-&sc_emmc2 {
+&sc_emmc2_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc2>,
 		  <&sc_emmc_hc2_1_8v>,
@@ -163,12 +163,6 @@
 		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
 		  <&sc_emmc_pd_hc2_dqs>;
 	bus-width = <4>;
-	no-sd;
-	no-sdio;
-	non-removable;
-	mmc-ddr-1_8v;
-	sdhci-caps-mask = <0x00000002 0x03000000>;
-	sdhci-caps = <0x0 0x40000>;
 };
 
 &sc_emmc_pinctrl {
@@ -281,6 +275,7 @@ et114\n\
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	baikal,audio-enable;
 };
 
 &hsp_usb1_l0 {
@@ -388,5 +383,21 @@ et114\n\
 	status = "okay";
 	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
 		  <&sc_lsp_pin11_uart1_txd>;
+};
+
+&sc_timer0 {
+	status = "okay";
+};
+
+&sc_timer1 {
+	status = "okay";
+};
+
+&sc_timer2 {
+	status = "okay";
+};
+
+&sc_timer3 {
+	status = "okay";
 };
 

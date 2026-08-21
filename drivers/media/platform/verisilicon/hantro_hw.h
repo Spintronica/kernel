@@ -563,7 +563,7 @@ hantro_vp9_mv_size(unsigned int width, unsigned int height)
 	 * and the motion vector for each block needs 16 bytes.
 	 */
 	num_ctbs = hantro_vp9_num_sbs(width) * hantro_vp9_num_sbs(height);
-	return (num_ctbs * 64) * 16;
+	return (num_ctbs * 64) * 32;
 }
 
 static inline size_t
@@ -590,7 +590,7 @@ hantro_h264_mv_size(unsigned int width, unsigned int height)
 	 * | MC sync          32 bytes |
 	 * +---------------------------+
 	 */
-	return 80 * MB_WIDTH(width) * MB_WIDTH(height) + 32;
+	return 160 * MB_WIDTH(width) * MB_WIDTH(height) + 32;
 }
 
 static inline size_t
@@ -600,7 +600,7 @@ hantro_hevc_mv_size(unsigned int width, unsigned int height)
 	 * A CTB can be 64x64, 32x32 or 16x16.
 	 * Allocated memory for the "worse" case: 16x16
 	 */
-	return width * height / 16;
+	return width * height / 8;
 }
 
 static inline size_t

@@ -18,6 +18,8 @@
 	aliases {
 		ethernet0 = &sc_gmac;
 		fru = &fru;
+		evdu = &ehsp_vdu;
+		vdu = &hsp_vdu;
 	};
 
 	cpus {
@@ -135,12 +137,11 @@
 };
 
 &mdio {
-	interrupt-parent = <&porte>;
-	interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
-
 	ethphy: ethernet-phy@3 {
 		compatible = "ethernet-phy-ieee802.3-c22";
 		reg = <0x3>;
+		interrupt-parent = <&porte>;
+		interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
@@ -325,7 +326,7 @@
 			MKEY(0xa0, 173),
 			MKEY(0xa1, 114),
 			MKEY(0xa3, 113),
-			MKEY(0xa7, 273),	//BTN-RIGHT
+			MKEY(0xa7, 139),	//BTN-RIGHT - 273
 			MKEY(0xa8, 128),
 			MKEY(0xab, 140),
 			MKEY(0xaf, 127),
@@ -398,6 +399,12 @@
 		  <&sc_lsp_pin16_hda_bclk>,
 		  <&sc_lsp_pin17_hda_sdo0>,
 		  <&sc_lsp_pin18_hda_sdi0>;
+	patch-data = "[codec]\n\
+0x111d76d5 0x00000100 0\n\
+[model]\n\
+et104\n\
+[pincfg]\n\
+0x11 0x90a3004e\n";
 };
 
 &ehsp_dp_phy {
@@ -467,11 +474,6 @@
 		interrupts-extended = <&porte 18 IRQ_TYPE_LEVEL_LOW>;
 		hid-descr-addr = <0x20>;
 	};
-
-	rtc: rtc@51 {
-		compatible = "haoyu,hym8563";
-		reg = <0x51>;
-	};
 };
 
 &hsp_usb0_l0 {
@@ -535,11 +537,6 @@
 	status = "okay";
 	pinctrl = <&hsp_lsp_pin0_i2c0_scl>,
 		  <&hsp_lsp_pin1_i2c0_sda>;
-
-	rtc@54 {
-		reg = <0x54>;
-		compatible = "nxp,pcf2127";
-	};
 };
 
 &hsp_i2c1 {
@@ -551,6 +548,11 @@
 	battery@b {
 		reg = <0xb>;
 		compatible = "sbs,sbs-battery";
+	};
+
+	rtc@54 {
+		reg = <0x54>;
+		compatible = "nxp,pcf2127";
 	};
 };
 

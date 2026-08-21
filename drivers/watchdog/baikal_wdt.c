@@ -235,7 +235,7 @@ static int baikal_wdt_drv_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	client->dev = dev;
 	client->rx_callback = baikal_wdt_irq;
-	baikal_wdt->mbox = mbox_request_channel_by_fwnode(client, 0);
+	baikal_wdt->mbox = mbox_request_channel(client, 0);
 	if (IS_ERR(baikal_wdt->mbox))
 		return PTR_ERR(baikal_wdt->mbox);
 

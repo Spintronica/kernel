@@ -17,6 +17,7 @@
 
 /* Synopsys DW SSI component versions (FourCC sequence) */
 #define DW_HSSI_102A			0x3130322a
+#define DW_PSSI_400A			0x3430302a
 
 /* DW SSI IP-core ID and version check helpers */
 #define dw_spi_ip_is(_dws, _ip) \
@@ -60,6 +61,7 @@
 #define DW_SPI_VERSION			0x5c
 #define DW_SPI_DR			0x60
 #define DW_SPI_RX_SAMPLE_DLY		0xf0
+#define DW_SPI_ENH_CTRLR0		0xf4
 #define DW_SPI_CS_OVERRIDE		0xf4
 
 /* Bit fields in CTRLR0 (DWC APB SSI) */
@@ -85,6 +87,12 @@
 #define DW_PSSI_CTRLR0_SLV_OE			BIT(10)
 #define DW_PSSI_CTRLR0_SRL			BIT(11)
 #define DW_PSSI_CTRLR0_CFS			BIT(12)
+
+#define DW_PSSI_CTRLR0_ENH_FRF_MASK		GENMASK(22, 21)
+#define DW_SPI_CTRLR0_ENH_FRF_STD		0x0 /* Standard SPI Frame Format */
+#define DW_SPI_CTRLR0_ENH_FRF_DUAL		0x1 /* Dual SPI Frame Format */
+#define DW_SPI_CTRLR0_ENH_FRF_QUAD		0x2 /* Quad SPI Frame Format */
+#define DW_SPI_CTRLR0_ENH_FRF_OCTAL		0x3 /* Octal SPI Frame Format */
 
 /* Bit fields in CTRLR0 (DWC SSI with AHB interface) */
 #define DW_HSSI_CTRLR0_DFS_MASK			GENMASK(4, 0)
@@ -133,6 +141,7 @@
 struct dw_spi_cfg {
 	u8 tmode;
 	u8 dfs;
+	u8 enh_frf;
 	u32 ndf;
 	u32 freq;
 };

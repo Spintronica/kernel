@@ -182,12 +182,12 @@ static int baikal_vdu_allocate_irq(struct platform_device *pdev,
 
 static int baikal_vdu_allocate_clk(struct baikal_vdu_private *priv)
 {
-	priv->clk = clk_get(priv->drm->dev, priv->pclk_name);
+	priv->clk = devm_clk_get_enabled(priv->drm->dev, priv->pclk_name);
 	if (IS_ERR(priv->clk)) {
 		dev_err(priv->drm->dev, "%s: unable to get %s, err %ld\n", priv->name, priv->pclk_name, PTR_ERR(priv->clk));
 		return PTR_ERR(priv->clk);
 	} else
-		return 0;
+		return clk_prepare_enable(priv->clk);
 }
 
 int baikal_vdu_resources_init(struct platform_device *pdev, struct baikal_vdu_private *priv)
@@ -246,6 +246,9 @@ static int baikal_vdu_drm_probe(struct platform_device *pdev)
 	struct baikal_vdu_crossbar *crossbar;
 	const struct baikal_vdu_ops *ops;
 	struct drm_device *drm;
+
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64)))
+		return -EIO;
 
 	crossbar = devm_drm_dev_alloc(dev, &vdu_drm_driver,
                   struct baikal_vdu_crossbar, drm);

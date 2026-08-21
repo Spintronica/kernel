@@ -298,6 +298,10 @@
 	baikal,awqos = <10>;
 };
 
+&hsp_smmu {
+	status = "okay";
+};
+
 &hsp_vdec {
 	status = "okay";
 	baikal,arqos = <8>;
@@ -337,7 +341,7 @@
 	status = "okay";
 };
 
-&sc_emmc1 {
+&sc_emmc1_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc1>,
 		  <&sc_emmc_hc1_1_8v>,
@@ -353,7 +357,7 @@
 	sdhci-caps = <0x0 0x40000>;
 };
 
-&sc_emmc2 {
+&sc_emmc2_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc2>,
 		  <&sc_emmc_hc2_1_8v>,
@@ -410,6 +414,22 @@
 };
 
 &sc_lsp_pinctrl2 {
+	status = "okay";
+};
+
+&sc_timer0 {
+	status = "okay";
+};
+
+&sc_timer1 {
+	status = "okay";
+};
+
+&sc_timer2 {
+	status = "okay";
+};
+
+&sc_timer3 {
 	status = "okay";
 };
 
@@ -581,8 +601,9 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		spi-max-frequency = <50000000>;
-		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <1>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		rx-sample-delay-ns = <5>;
 		status = "okay";
 	};
 };
@@ -609,6 +630,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	baikal,audio-enable;
 };
 
 &hsp_usb1_l0 {
@@ -773,10 +795,8 @@
 	};
 };
 
-&sc_sdio { /* Connected to LTE/GPRS/GSM and Wi-Fi/Bluetooth controllers */
-#if 0 /* TODO */
+&sc_sdio_sdhci { /* Connected to LTE/GPRS/GSM and Wi-Fi/Bluetooth controllers */
 	status = "okay";
-#endif
 	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
 	bus-width = <4>;
 	max-frequency = <25000000>;
@@ -825,8 +845,9 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		spi-max-frequency = <50000000>;
-		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <1>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		rx-sample-delay-ns = <5>;
 		status = "okay";
 	};
 };
@@ -959,8 +980,9 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		spi-max-frequency = <50000000>;
-		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <1>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		rx-sample-delay-ns = <5>;
 		status = "okay";
 	};
 };
@@ -1023,10 +1045,8 @@
 	};
 };
 
-&sc_sdio {
-#if 0 /* TODO */
+&sc_sdio_sdhci {
 	status = "okay";
-#endif
 	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
 	bus-width = <4>;
 	max-frequency = <25000000>;

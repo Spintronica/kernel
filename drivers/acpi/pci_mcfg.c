@@ -209,6 +209,16 @@ static struct mcfg_fixup mcfg_quirks[] = {
 	BAIKAL_ECAM("BKLEMCFG", 2, 25, &baikal_s_pcie_ecam_ops),
 	BAIKAL_ECAM("BKLEMCFG", 2, 26, &baikal_s_pcie_ecam_ops),
 	BAIKAL_ECAM("BKLEMCFG", 2, 27, &baikal_s_pcie_ecam_ops),
+
+	/* Baikal-L Synopsys DesignWare PCIe */
+	BAIKAL_ECAM("BKLEMCFG", 3, 0, &baikal_l_pcie_ecam_ops),
+	BAIKAL_ECAM("BKLEMCFG", 3, 1, &baikal_l_pcie_ecam_ops),
+	BAIKAL_ECAM("BKLEMCFG", 3, 2, &baikal_l_pcie_ecam_ops),
+	BAIKAL_ECAM("BKLEMCFG", 3, 3, &baikal_l_pcie_ecam_ops),
+	BAIKAL_ECAM("BKLEMCFG", 3, 4, &baikal_l_pcie_ecam_ops),
+	BAIKAL_ECAM("BKLEMCFG", 3, 5, &baikal_l_pcie_ecam_ops),
+	BAIKAL_ECAM("BKLEMCFG", 3, 6, &baikal_l_pcie_ecam_ops),
+	BAIKAL_ECAM("BKLEMCFG", 3, 7, &baikal_l_pcie_ecam_ops),
 #endif /* ARM64 */
 
 #ifdef CONFIG_LOONGARCH

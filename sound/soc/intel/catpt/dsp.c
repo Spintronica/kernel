@@ -129,9 +129,6 @@ int catpt_dmac_probe(struct catpt_dev *cdev)
 		return -ENOMEM;
 	dmac->irq[0] = cdev->irq;
 
-	ret = dma_coerce_mask_and_coherent(cdev->dev, DMA_BIT_MASK(31));
-	if (ret)
-		return ret;
 	/*
 	 * Caller is responsible for putting device in D0 to allow
 	 * for I/O and memory access before probing DW.

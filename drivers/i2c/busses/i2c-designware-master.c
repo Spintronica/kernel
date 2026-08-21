@@ -805,6 +805,8 @@ static void i2c_dw_dma_write_complete(void *args) {
 	dev->msg_write_idx++;
 	if (!dev->msg_read)
 		complete(&dev->cmd_complete);
+	else
+		regmap_write(dev->map, DW_IC_DATA_CMD, 0x300);
 }
 
 static void i2c_dw_dma_read_complete(void *args) {
@@ -875,7 +877,9 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 			dev->use_dma = false;
 			reinit_completion(&dev->cmd_complete);
 
-			struct dma_async_tx_descriptor *dma_desc;
+			struct dma_async_tx_descriptor *txdesc;
+			struct dma_async_tx_descriptor *rxdesc;
+
 			struct i2c_msg *msg = msgs + dev->msg_write_idx;
 			u32 maxburst = (-(msg->len | DW_IC_DMA_MAXBURST)) &
 				(msg->len | DW_IC_DMA_MAXBURST);
@@ -892,7 +896,7 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 
 			if (!dev->msg_read) {
 				memcpy(dev->tx_dma.buf, msg->buf, msg->len);
-				dma_desc = dmaengine_prep_slave_single(
+				txdesc = dmaengine_prep_slave_single(
 						dev->dma_chan_tx,
 						dev->tx_dma.phys, msg->len,
 						DMA_MEM_TO_DEV,
@@ -902,28 +906,28 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				regmap_update_bits(dev->map, DW_IC_INTR_MASK,
 						DW_IC_INTR_RX_FULL | DW_IC_INTR_STOP_DET, 0);
 				dev->msg_read_idx = dev->msg_write_idx;
-				dma_desc = dmaengine_prep_slave_single(
+				rxdesc = dmaengine_prep_slave_single(
 						dev->dma_chan_rx,
 						dev->rx_dma.phys, msg->len,
 						DMA_DEV_TO_MEM,
 						DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
-				dma_desc->callback = i2c_dw_dma_read_complete;
-				dma_desc->callback_param = dev;
-				dmaengine_submit(dma_desc);
+				rxdesc->callback = i2c_dw_dma_read_complete;
+				rxdesc->callback_param = dev;
+				dmaengine_submit(rxdesc);
 				dma_async_issue_pending(dev->dma_chan_rx);
 
 				dev->rx_outstanding = msg->len;
-				dma_desc = dmaengine_prep_slave_single(
+				txdesc = dmaengine_prep_slave_single(
 						dev->dma_chan_tx,
-						dev->cmd_dma.phys, msg->len * 2,
+						dev->cmd_dma.phys, (msg->len - 1) * 2,
 						DMA_MEM_TO_DEV,
 						DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 				regmap_write(dev->map, DW_IC_DMA_CR,
 						DW_IC_DMA_CR_TDMAE | DW_IC_DMA_CR_RDMAE);
 			}
-			dma_desc->callback = i2c_dw_dma_write_complete;
-			dma_desc->callback_param = dev;
-			dmaengine_submit(dma_desc);
+			txdesc->callback = i2c_dw_dma_write_complete;
+			txdesc->callback_param = dev;
+			dmaengine_submit(txdesc);
 			dma_async_issue_pending(dev->dma_chan_tx);
 
 			ret = i2c_dw_wait_transfer(dev);

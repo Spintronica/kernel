@@ -11,8 +11,11 @@ baikal_bl1000_vdu-y += baikal_bl1000_vdu_drv.o \
                 baikal_bl1000_plane.o \
                 baikal_bl1000_vdu.o
 
+baikal_bl1000_dp_snd-y += baikal_bl1000_dp_snd.o
+
 baikal_vdu_drm-$(CONFIG_DEBUG_FS) += baikal_vdu_debugfs.o
 
 obj-$(CONFIG_DRM_BAIKAL_BL1000) += baikal_bl1000_vdu.o
 obj-$(CONFIG_DRM_BAIKAL_HDMI) += baikal-hdmi.o
 obj-$(CONFIG_DRM_BAIKAL_VDU) += baikal_vdu_drm.o
+obj-$(CONFIG_SND_BAIKAL_BL1000_DP) += baikal_bl1000_dp_snd.o

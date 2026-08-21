@@ -7,10 +7,11 @@
 #include <linux/pci-ecam.h>
 
 #ifdef CONFIG_PCIE_BAIKAL
+extern const struct pci_ecam_ops baikal_l_pcie_ecam_ops;
 extern const struct pci_ecam_ops baikal_m_pcie_ecam_ops;
 extern const struct pci_ecam_ops baikal_s_pcie_ecam_ops;
 #else
-const struct pci_ecam_ops baikal_m_pcie_ecam_ops = {
+const struct pci_ecam_ops baikal_l_pcie_ecam_ops = {
 	.bus_shift	= 20,
 	.pci_ops	= {
 		.map_bus	= pci_ecam_map_bus,
@@ -19,5 +20,6 @@ const struct pci_ecam_ops baikal_m_pcie_ecam_ops = {
 	}
 };
 
-const struct pci_ecam_ops baikal_s_pcie_ecam_ops = baikal_m_pcie_ecam_ops;
+const struct pci_ecam_ops baikal_m_pcie_ecam_ops = baikal_l_pcie_ecam_ops;
+const struct pci_ecam_ops baikal_s_pcie_ecam_ops = baikal_l_pcie_ecam_ops;
 #endif

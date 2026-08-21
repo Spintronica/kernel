@@ -330,6 +330,13 @@ void dw_spi_update_config(struct dw_spi *dws, struct spi_device *spi,
 		/* CTRLR0[11:10] Transfer Mode */
 		cr0 |= FIELD_PREP(DW_HSSI_CTRLR0_TMOD_MASK, cfg->tmode);
 
+	if (dw_spi_ver_is_ge(dws, PSSI, 400A))
+		/* CTRLR0[22:21] SPI Frame Format */
+		cr0 |= FIELD_PREP(DW_PSSI_CTRLR0_ENH_FRF_MASK, cfg->enh_frf);
+
+	if (cfg->enh_frf)
+		dw_writel(dws, DW_SPI_ENH_CTRLR0, 0);
+
 	dw_writel(dws, DW_SPI_CTRLR0, cr0);
 
 	if (cfg->tmode == DW_SPI_CTRLR0_TMOD_EPROMREAD ||
@@ -410,6 +417,40 @@ static int dw_spi_poll_transfer(struct dw_spi *dws,
 	return 0;
 }
 
+static inline void dw_spi_read_n(struct dw_spi *dws, unsigned int len)
+{
+	unsigned int entries;
+
+	dw_write_io_reg(dws, DW_SPI_DR, 0);
+
+	dws->rx_len -= len;
+	while (len) {
+		entries = min(len, readl_relaxed(dws->regs + DW_SPI_RXFLR));
+		for (; entries; --entries, --len)
+			*((u8 *)(dws->rx)++) = dw_read_io_reg(dws, DW_SPI_DR);
+
+	}
+}
+
+
+static int dw_spi_enh_poll_read(struct dw_spi *dws, struct dw_spi_cfg *cfg,
+				    struct spi_device *spi)
+{
+	do {
+		if (unlikely(dws->rx_len < dws->fifo_len || !cfg->ndf)) {
+			cfg->ndf = cfg->ndf ? dws->rx_len : dws->fifo_len;
+
+			dw_spi_enable_chip(dws, 0);
+			dw_spi_update_config(dws, spi, cfg);
+			dw_spi_enable_chip(dws, 1);
+		}
+
+		dw_spi_read_n(dws, cfg->ndf);
+	} while (dws->rx_len);
+
+	return 0;
+}
+
 static int dw_spi_transfer_one(struct spi_controller *host,
 			       struct spi_device *spi,
 			       struct spi_transfer *transfer)
@@ -419,6 +460,7 @@ static int dw_spi_transfer_one(struct spi_controller *host,
 		.tmode = DW_SPI_CTRLR0_TMOD_TR,
 		.dfs = transfer->bits_per_word,
 		.freq = transfer->speed_hz,
+		.enh_frf = ilog2(transfer->tx_nbits | transfer->rx_nbits),
 	};
 	int ret;
 
@@ -428,6 +470,9 @@ static int dw_spi_transfer_one(struct spi_controller *host,
 	dws->tx_len = transfer->len / dws->n_bytes;
 	dws->rx = transfer->rx_buf;
 	dws->rx_len = dws->tx_len;
+
+	if (cfg.enh_frf)
+		cfg.tmode = dws->rx ? DW_SPI_CTRLR0_TMOD_RO : DW_SPI_CTRLR0_TMOD_TO;
 
 	/* Ensure the data above is visible for all CPUs */
 	smp_mb();
@@ -454,6 +499,8 @@ static int dw_spi_transfer_one(struct spi_controller *host,
 
 	if (dws->dma_mapped)
 		return dws->dma_ops->dma_transfer(dws, transfer);
+	if (cfg.enh_frf && dws->rx)
+		return dw_spi_enh_poll_read(dws, &cfg, spi);
 	else if (dws->irq == IRQ_NOTCONNECTED)
 		return dw_spi_poll_transfer(dws, transfer);
 
@@ -484,8 +531,8 @@ static int dw_spi_adjust_mem_op_size(struct spi_mem *mem, struct spi_mem_op *op)
 static bool dw_spi_supports_mem_op(struct spi_mem *mem,
 				   const struct spi_mem_op *op)
 {
-	if (op->data.buswidth > 1 || op->addr.buswidth > 1 ||
-	    op->dummy.buswidth > 1 || op->cmd.buswidth > 1)
+	if (((!spi_get_csgpiod(mem->spi, 0) || op->data.dir == SPI_MEM_DATA_OUT) && op->data.buswidth > 1) ||
+	    op->addr.buswidth > 1 || op->dummy.buswidth > 1 || op->cmd.buswidth > 1)
 		return false;
 
 	return spi_mem_default_supports_op(mem, op);
@@ -815,6 +862,39 @@ static void dw_spi_cleanup(struct spi_device *spi)
 	spi_set_ctldata(spi, NULL);
 }
 
+static u32 dw_spi_detect_enh_mode(struct dw_spi *dws)
+{
+	u32 enh_frf_offset, mode = 0, cr0, tmp;
+
+	u32 modes[][2] = {
+		{DW_SPI_CTRLR0_ENH_FRF_DUAL, SPI_TX_DUAL | SPI_RX_DUAL},
+		{DW_SPI_CTRLR0_ENH_FRF_QUAD, SPI_TX_QUAD | SPI_RX_QUAD},
+		{DW_SPI_CTRLR0_ENH_FRF_OCTAL, SPI_TX_OCTAL | SPI_RX_OCTAL},
+	};
+
+	if (dw_spi_ver_is_ge(dws, PSSI, 400A))
+		enh_frf_offset = __bf_shf(DW_PSSI_CTRLR0_ENH_FRF_MASK);
+	else
+		return 0;
+
+	dw_spi_enable_chip(dws, 0);
+
+	tmp = dw_readl(dws, DW_SPI_CTRLR0);
+
+	for (unsigned int i = 0; i < sizeof(modes) / sizeof(modes[0]); ++i) {
+		cr0 = tmp | (modes[i][0] << enh_frf_offset);
+		dw_writel(dws, DW_SPI_CTRLR0, cr0);
+		if (dw_readl(dws, DW_SPI_CTRLR0) == cr0)
+			mode |= modes[i][1];
+	}
+
+	dw_writel(dws, DW_SPI_CTRLR0, tmp);
+
+	dw_spi_enable_chip(dws, 1);
+
+	return mode;
+}
+
 /* Restart the controller, disable all interrupts, clean rx fifo */
 static void dw_spi_hw_init(struct device *dev, struct dw_spi *dws)
 {
@@ -927,6 +1007,7 @@ int dw_spi_add_host(struct device *dev, struct dw_spi *dws)
 
 	host->use_gpio_descriptors = true;
 	host->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP;
+	host->mode_bits |= dw_spi_detect_enh_mode(dws);
 	if (dws->caps & DW_SPI_CAP_DFS32)
 		host->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
 	else

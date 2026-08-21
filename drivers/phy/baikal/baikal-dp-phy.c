@@ -1590,8 +1590,18 @@ static int cdns_torrent_dp_configure(struct phy *phy,
 	struct cdns_torrent_phy *cdns_phy = dev_get_drvdata(phy->dev.parent);
 	int ret;
 
-	if (cdns_phy->already_configured)
-		return 0;
+	/*
+	 * Do NOT skip configuration when already_configured is set.
+	 * The already_configured flag indicates the bootloader (UEFI)
+	 * initialized the PHY registers and PLL. However, link rate,
+	 * lane count, and voltage swing are per-sink parameters that
+	 * must match the connected monitor. When UEFI initialized the
+	 * PHY without a monitor, these values are defaults that may not
+	 * work with the actual sink, causing DP link training to fail.
+	 * phy_init() and phy_power_on() correctly skip when
+	 * already_configured (register tables and reset deassert),
+	 * but phy_configure() must always execute.
+	 */
 
 	ret = cdns_torrent_dp_verify_config(inst, &opts->dp);
 	if (ret) {
@@ -5040,7 +5050,7 @@ static const struct of_device_id baikal_dp_phy_of_match[] = {
 	},
 	{}
 };
-MODULE_DEVICE_TABLE(of, cdns_torrent_phy_of_match);
+MODULE_DEVICE_TABLE(of, baikal_dp_phy_of_match);
 
 static struct platform_driver baikal_dp_phy_driver = {
 	.probe	= baikal_dp_phy_probe,

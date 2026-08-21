@@ -46,8 +46,9 @@
 		i2c5	= &hsp_i2c1;
 		i2c6	= &hsp_i2c2;
 		i2c7	= &hsp_i2c3;
-		mmc0	= &sc_emmc1;
-		mmc1	= &sc_emmc2;
+		mmc0	= &sc_sdio_sdhci;
+		mmc1	= &sc_emmc1_sdhci;
+		mmc2	= &sc_emmc2_sdhci;
 		serial0	= &sc_uart0;
 		serial1	= &sc_uart1;
 		serial2	= &sc_uart2;
@@ -67,6 +68,7 @@
 #ifdef USE_BL1000_PCIE1_SS_MODE
 		pcie1-ss-mode = <USE_BL1000_PCIE1_SS_MODE>;
 #endif
+		stdout-path = "serial2";
 	};
 
 	clocks {
@@ -91,6 +93,24 @@
 			#clock-cells = <0>;
 			clock-frequency = <100000000>;
 			clock-output-names = "refclk100mhz";
+		};
+		refclk200mhz: refclk200mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <200000000>;
+			clock-output-names = "refclk200mhz";
+		};
+		refclk400mhz: refclk400mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <400000000>;
+			clock-output-names = "refclk400mhz";
+		};
+		refclk600mhz: refclk600mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <600000000>;
+			clock-output-names = "refclk600mhz";
 		};
 
 		/* SC MM specification v0.32 */
@@ -637,6 +657,15 @@
 			cache-line-size = <64>;
 			cache-unified;
 			cache-level = <3>;
+			next-level-cache = <&l4>;
+		};
+
+		l4: l4-cache {
+			compatible = "cache";
+			cache-size = <0x400000>;
+			cache-line-size = <64>;
+			cache-unified;
+			cache-level = <4>;
 		};
 	};
 
@@ -655,6 +684,75 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		efuse {
+			compatible = "baikal,efuse-smc";
+		};
+
+		sram@1fd00 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x1fd00 0x0 0x100>;
+
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0x0 0x1fd00 0x100>;
+
+			shmem_scmi_a2p: scmi-shmem@0 {
+				compatible = "arm,scmi-shmem";
+				reg = <0x0 0x80>;
+			};
+
+			shmem_scmi_p2a: scmi-shmem@80 {
+				compatible = "arm,scmi-shmem";
+				reg = <0x80 0x80>;
+			};
+		};
+
+		mailbox_scmi_a2p: mailbox@240000 {
+			compatible = "baikal,baikal-mbox-scmi";
+			reg = <0x0 0x240000 0x0 0x10000>;
+			interrupts = <GIC_SPI 388 IRQ_TYPE_LEVEL_HIGH>;
+			#mbox-cells = <1>;
+		};
+
+		mailbox_scmi_p2a: mailbox@250000 {
+			compatible = "baikal,baikal-mbox-scmi";
+			reg = <0x0 0x250000 0x0 0x10000>;
+			interrupts = <GIC_SPI 389 IRQ_TYPE_LEVEL_HIGH>;
+			#mbox-cells = <1>;
+		};
+
+		scmi {
+			compatible = "arm,scmi";
+			mboxes = <&mailbox_scmi_a2p 0 &mailbox_scmi_p2a 0>;
+			mbox-names = "tx", "rx";
+			shmem = <&shmem_scmi_a2p &shmem_scmi_p2a>;
+			arm,max-rx-timeout-ms = <20>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			scmi_voltage: protocol@17 {
+				reg = <0x17>;
+				regulators {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					voltage_cpu: regulator@0 {
+						reg = <0x0>;
+					};
+					voltage_gpu: regulator@1 {
+						reg = <0x1>;
+					};
+				};
+			};
+		};
+
+		pd: power-controller {
+			compatible = "baikal,smc-power-domains";
+			domain-names = "ehsp",	/* 0 */
+				       "hsp";	/* 1 */
+			#power-domain-cells = <1>;
+		};
 
 		sc_qspi_cs: gpio-controller@840020 {
 			compatible = "baikal,bl1000-qspi-cs";
@@ -1062,7 +1160,7 @@
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <1>;
 			pinctrl-single,bit-per-mux;
-			pinctrl-single,gpio-range = <&sc_emmc_pu_pinctrl_range  0 24 0>;
+			pinctrl-single,gpio-range = <&sc_emmc_pu_pinctrl_range 0 24 0>;
 			status = "disabled";
 
 			sc_emmc_pu_pinctrl_range: gpio-range {
@@ -1085,7 +1183,7 @@
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <1>;
 			pinctrl-single,bit-per-mux;
-			pinctrl-single,gpio-range = <&sc_emmc_pd_pinctrl_range  0 24 0>;
+			pinctrl-single,gpio-range = <&sc_emmc_pd_pinctrl_range 0 24 0>;
 			status = "disabled";
 
 			sc_emmc_pd_pinctrl_range: gpio-range {
@@ -1110,6 +1208,9 @@
 				     <GIC_SPI 430 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "eventq", "priq", "cmdq-sync", "gerror";
 			#iommu-cells = <1>;
+			baikal,default-bypass;
+			msi-parent = <&its0 0x10001>, <&its1 0x10001>;
+			dma-noncoherent;
 			status = "disabled";
 		};
 
@@ -1141,6 +1242,9 @@
 			i2c-sda-hold-time-ns = <500>;
 			clocks = <&sc_cmu0_clkch 32>;
 			clock-frequency = <400000>;
+			/* DMA is mutually exclusive with SC.I2C1 */
+			dmas = <&sc_dmac 0 0 1>, <&sc_dmac 1 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -1153,6 +1257,9 @@
 			i2c-sda-hold-time-ns = <500>;
 			clocks = <&sc_cmu0_clkch 33>;
 			clock-frequency = <400000>;
+			/* DMA is mutually exclusive with SC.I2C0 */
+			/* dmas = <&sc_dmac 0 0 1>, <&sc_dmac 1 0 1>; */
+			/* dma-names = "tx", "rx"; */
 			status = "disabled";
 		};
 
@@ -1165,6 +1272,8 @@
 			i2c-sda-hold-time-ns = <500>;
 			clocks = <&sc_cmu0_clkch 34>;
 			clock-frequency = <400000>;
+			dmas = <&sc_dmac 2 0 1>, <&sc_dmac 3 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -1188,6 +1297,9 @@
 			reg-io-width = <4>;
 			clocks = <&sc_cmu0_clkch 37>, <&sc_cmu0_clkch 31>;
 			clock-names = "baudclk", "apb_pclk";
+			/* DMA is mutually exclusive with SC.UART1 */
+			dmas = <&sc_dmac 4 0 1>, <&sc_dmac 5 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -1199,6 +1311,9 @@
 			reg-io-width = <4>;
 			clocks = <&sc_cmu0_clkch 38>, <&sc_cmu0_clkch 31>;
 			clock-names = "baudclk", "apb_pclk";
+			/* DMA is mutually exclusive with SC.UART0 */
+			/* dmas = <&sc_dmac 4 0 1>, <&sc_dmac 5 0 1>; */
+			/* dma-names = "tx", "rx"; */
 			status = "disabled";
 		};
 
@@ -1210,6 +1325,8 @@
 			reg-io-width = <4>;
 			clocks = <&sc_cmu0_clkch 39>, <&sc_cmu0_clkch 31>;
 			clock-names = "baudclk", "apb_pclk";
+			dmas = <&sc_dmac 6 0 1>, <&sc_dmac 7 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -1221,6 +1338,8 @@
 			reg-io-width = <4>;
 			clocks = <&sc_cmu0_clkch 40>, <&sc_cmu0_clkch 31>;
 			clock-names = "baudclk", "apb_pclk";
+			dmas = <&sc_dmac 8 0 1>, <&sc_dmac 9 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -1318,10 +1437,11 @@
 			reg = <0x0 0x2400000 0x0 0x10000>;
 			interrupts = <GIC_SPI 498 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
-			clocks = <&sc_cmu0_clkch 25>, <&sc_cmu0_clkch 26>,
-				 <&sc_cmu0_clkch 29>, <&sc_cmu0_clkch 28>;
-			clock-names = "pclk", "stmmaceth", "tx2_clk", "ptp_ref";
+			clocks = <&sc_cmu0_clkch 29>,
+				 <&sc_cmu0_clkch 28>;
+			clock-names = "tx2_clk", "ptp_ref";
 			max-speed = <1000>;
+			iommus = <&sc_smmu 25>;
 			status = "disabled";
 
 			mdio: mdio {
@@ -1331,7 +1451,7 @@
 			};
 		};
 
-		sc_sdio: mmc@2410000 {
+		sc_sdio_sdhci: sdhci@2410000 {
 			compatible = "baikal,bl1000-sd4hc";
 			reg = <0x0 0x2410000 0x0 0x3000>;
 			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
@@ -1359,7 +1479,7 @@
 			};
 		};
 
-		sc_emmc1: mmc@2600000 {
+		sc_emmc1_sdhci: sdhci@2600000 {
 			compatible = "baikal,bl1000-sd4hc";
 			reg = <0x0 0x2600000 0x0 0x3000>;
 			interrupts = <GIC_SPI 495 IRQ_TYPE_LEVEL_HIGH>;
@@ -1367,7 +1487,7 @@
 			status = "disabled";
 		};
 
-		sc_emmc2: mmc@2610000 {
+		sc_emmc2_sdhci: sdhci@2610000 {
 			compatible = "baikal,bl1000-sd4hc";
 			reg = <0x0 0x2610000 0x0 0x3000>;
 			interrupts = <GIC_SPI 496 IRQ_TYPE_LEVEL_HIGH>;
@@ -1398,6 +1518,9 @@
 			compatible = "snps,dw-apb-timer";
 			reg = <0x0 0x2a00000 0x0 0x14>;
 			interrupts = <GIC_SPI 486 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sc_cmu0_clkch 12>, <&sc_cmu0_clkch 13>;
+			clock-names = "pclk", "timer";
+			clock-frequency = <100000000>;
 			status = "disabled";
 		};
 
@@ -1405,6 +1528,9 @@
 			compatible = "snps,dw-apb-timer";
 			reg = <0x0 0x2a10000 0x0 0x14>;
 			interrupts = <GIC_SPI 487 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sc_cmu0_clkch 12>, <&sc_cmu0_clkch 14>;
+			clock-names = "pclk", "timer";
+			clock-frequency = <100000000>;
 			status = "disabled";
 		};
 
@@ -1412,6 +1538,9 @@
 			compatible = "snps,dw-apb-timer";
 			reg = <0x0 0x2a20000 0x0 0x14>;
 			interrupts = <GIC_SPI 488 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sc_cmu0_clkch 12>, <&sc_cmu0_clkch 15>;
+			clock-names = "pclk", "timer";
+			clock-frequency = <100000000>;
 			status = "disabled";
 		};
 
@@ -1419,6 +1548,9 @@
 			compatible = "snps,dw-apb-timer";
 			reg = <0x0 0x2a30000 0x0 0x14>;
 			interrupts = <GIC_SPI 489 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sc_cmu0_clkch 12>, <&sc_cmu0_clkch 16>;
+			clock-names = "pclk", "timer";
+			clock-frequency = <100000000>;
 			status = "disabled";
 		};
 
@@ -1426,6 +1558,12 @@
 			compatible = "snps,dw-wdt";
 			reg = <0x0 0x2a40000 0x0 0x1000>;
 			interrupts = <GIC_SPI 490 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sc_cmu0_clkch 17>;
+			clock-names = "tclk";
+			snps,watchdog-tops = <0x000000ff 0x000001ff 0x000003ff 0x000007ff
+					      0x0000ffff 0x0001ffff 0x0003ffff 0x0007ffff
+					      0x000fffff 0x001fffff 0x003fffff 0x007fffff
+					      0x00ffffff 0x01ffffff 0x03ffffff 0x07ffffff>;
 			status = "disabled";
 		};
 
@@ -1433,6 +1571,12 @@
 			compatible = "snps,dw-wdt";
 			reg = <0x0 0x2a50000 0x0 0x1000>;
 			interrupts = <GIC_SPI 491 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&sc_cmu0_clkch 18>;
+			clock-names = "tclk";
+			snps,watchdog-tops = <0x000000ff 0x000001ff 0x000003ff 0x000007ff
+					      0x0000ffff 0x0001ffff 0x0003ffff 0x0007ffff
+					      0x000fffff 0x001fffff 0x003fffff 0x007fffff
+					      0x00ffffff 0x01ffffff 0x03ffffff 0x07ffffff>;
 			status = "disabled";
 		};
 
@@ -1806,6 +1950,9 @@
 				     <GIC_SPI 219 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "eventq", "priq", "cmdq-sync", "gerror";
 			#iommu-cells = <1>;
+			baikal,default-bypass;
+			msi-parent = <&its0 0x10000>, <&its1 0x10000>;
+			dma-noncoherent;
 			status = "disabled";
 		};
 
@@ -1814,8 +1961,9 @@
 			reg = <0x0 0x2a200000 0x0 0x100000>;
 			interrupts = <GIC_SPI 130 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "vdpu";
-			clocks = <&hsp_cmu0_clkch 1>, <&hsp_cmu0_clkch 2>;
+			clocks = <&refclk400mhz>, <&hsp_cmu0_clkch 2>;
 			clock-names = "aclk", "pclk";
+			iommus = <&hsp_smmu 53>;
 			status = "disabled";
 		};
 
@@ -1824,7 +1972,8 @@
 			reg = <0x0 0x2a300000 0x0 0x100000>;
 			interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "vepu";
-			clocks = <&hsp_cmu0_clkch 3>;
+			clocks = <&refclk600mhz>;
+			iommus = <&hsp_smmu 55>;
 			clock-names = "aclk";
 			status = "disabled";
 		};
@@ -1923,6 +2072,7 @@
 			interrupt-names = "otg", "peripheral", "host";
 			resets = <&hsp_gpr_mmrst0 13>;
 			reset-names = "apb";
+			iommus = <&hsp_smmu 56>;
 			status = "disabled";
 		};
 
@@ -1938,6 +2088,7 @@
 			interrupt-names = "otg", "peripheral", "host";
 			resets = <&hsp_gpr_mmrst0 14>;
 			reset-names = "apb";
+			iommus = <&hsp_smmu 57>;
 			status = "disabled";
 		};
 
@@ -2004,6 +2155,7 @@
 			interrupt-names = "otg", "peripheral", "host";
 			resets = <&hsp_gpr_mmrst0 20>;
 			reset-names = "apb";
+			iommus = <&hsp_smmu 58>;
 			status = "disabled";
 		};
 
@@ -2019,6 +2171,7 @@
 			interrupt-names = "otg", "peripheral", "host";
 			resets = <&hsp_gpr_mmrst0 21>;
 			reset-names = "apb";
+			iommus = <&hsp_smmu 59>;
 			status = "disabled";
 		};
 
@@ -2081,6 +2234,9 @@
 			i2c-sda-hold-time-ns = <500>;
 			clocks = <&hsp_cmu0_clkch 23>;
 			clock-frequency = <400000>;
+			/* DMA is mutually exclusive with HSP.I2C1 */
+			dmas = <&hsp_dmac 0 0 1>, <&hsp_dmac 1 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -2093,6 +2249,9 @@
 			i2c-sda-hold-time-ns = <500>;
 			clocks = <&hsp_cmu0_clkch 23>;
 			clock-frequency = <400000>;
+			/* DMA is mutually exclusive with HSP.I2C0 */
+			/* dmas = <&hsp_dmac 0 0 1>, <&hsp_dmac 1 0 1>; */
+			/* dma-names = "tx", "rx"; */
 			status = "disabled";
 		};
 
@@ -2105,6 +2264,8 @@
 			i2c-sda-hold-time-ns = <500>;
 			clocks = <&hsp_cmu0_clkch 23>;
 			clock-frequency = <400000>;
+			dmas = <&hsp_dmac 2 0 1>, <&hsp_dmac 3 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -2126,8 +2287,11 @@
 			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>, <&hsp_cmu0_clkch 21>;
-			clock-names = "baudclk", "apb_pclk";
+			clocks = <&hsp_cmu0_clkch 22>;
+			clock-names = "baudclk";
+			/* DMA is mutually exclusive with HSP.UART1 */
+			dmas = <&hsp_dmac 4 0 1>, <&hsp_dmac 5 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -2137,8 +2301,11 @@
 			interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>, <&hsp_cmu0_clkch 21>;
-			clock-names = "baudclk", "apb_pclk";
+			clocks = <&hsp_cmu0_clkch 22>;
+			clock-names = "baudclk";
+			/* DMA is mutually exclusive with HSP.UART0 */
+			/* dmas = <&hsp_dmac 4 0 1>, <&hsp_dmac 5 0 1>; */
+			/* dma-names = "tx", "rx"; */
 			status = "disabled";
 		};
 
@@ -2148,8 +2315,10 @@
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>, <&hsp_cmu0_clkch 21>;
-			clock-names = "baudclk", "apb_pclk";
+			clocks = <&hsp_cmu0_clkch 22>;
+			clock-names = "baudclk";
+			dmas = <&hsp_dmac 6 0 1>, <&hsp_dmac 7 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -2159,8 +2328,10 @@
 			interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>, <&hsp_cmu0_clkch 21>;
-			clock-names = "baudclk", "apb_pclk";
+			clocks = <&hsp_cmu0_clkch 22>;
+			clock-names = "baudclk";
+			dmas = <&hsp_dmac 8 0 1>, <&hsp_dmac 9 0 1>;
+			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
@@ -2184,7 +2355,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsp_cmu0_clkch 21>;
+			clocks = <&refclk200mhz>;
 			clock-names = "ssi_clk";
 			num-cs = <3>;
 			status = "disabled";
@@ -2234,8 +2405,6 @@
 				     <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&hsp_cmu0_clkch 21>;
-			clock-names = "hclk";
 			dma-channels = <8>;
 			dma-requests = <16>;
 			dma-masters = <2>;

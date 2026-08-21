@@ -51,7 +51,6 @@ struct private_data {
 	struct list_head node;
 
 	cpumask_var_t cpumask;
-	spinlock_t lock;
 	void __iomem *reg;
 	struct device *cpu_dev;
 	struct cpufreq_frequency_table *freq_table;
@@ -84,19 +83,13 @@ static int baikal_cpufreq_target_index(struct cpufreq_policy *policy,
 	int idx = 2 * ((priv->freq_table[index].driver_data >> 16) & 0xffff);
 	u8 count = priv->freq_table[index].driver_data & 0x1f;
 	int ret;
-	struct arm_smccc_res res;
 
-	spin_lock(&priv->lock);
 	ret = dev_pm_opp_set_rate(priv->cpu_dev, priv->data[idx]);
-	if (ret) {
-		spin_unlock(&priv->lock);
+	if (ret)
 		return ret;
-	}
-	/* TODO change to writel */
-	arm_smccc_smc(BAIKAL_SMC_THROTTLE, 0, priv->cpu, 0, 0, 0, 0, 0, &res);
-	arm_smccc_smc(BAIKAL_SMC_THROTTLE, 0, priv->cpu,
-		      0x80000000 | ((1 << count) - 1), 0, 0, 0, 0, &res);
-	spin_unlock(&priv->lock);
+
+	writel(readl(priv->reg) & ~0x80000000, priv->reg);
+	writel(0x80000000 | ((1 << count) - 1), priv->reg);
 
 	return 0;
 }
@@ -182,7 +175,6 @@ static unsigned int baikal_cpufreq_get(unsigned int cpu)
 	struct private_data *priv;
 	unsigned long int rate;
 	u8 count;
-	struct arm_smccc_res res;
 
 	if (!policy || IS_ERR(policy->clk)) {
 		pr_err("%s: No %s associated to cpu: %d\n",
@@ -191,17 +183,13 @@ static unsigned int baikal_cpufreq_get(unsigned int cpu)
 	}
 
 	priv = policy->driver_data;
-	spin_lock(&priv->lock);
-	/* TODO change to readl */
-	arm_smccc_smc(BAIKAL_SMC_THROTTLE, 1, priv->cpu, 0, 0, 0, 0, 0, &res);
-	rate = res.a0 & ~0xC0000000;
+	rate = readl(priv->reg) & ~0xC0000000;
 	count = baikal_bit_count(&rate);
 	if (count)
 		rate = clk_get_rate(policy->clk) / 1000 / BAIKAL_MAX_COEF *
 			(BAIKAL_MAX_COEF - count);
 	else
 		rate = clk_get_rate(policy->clk) / 1000;
-	spin_unlock(&priv->lock);
 
 	return rate;
 }
@@ -353,7 +341,6 @@ static int baikal_cpufreq_early_init(struct device *dev, int cpu)
 	}
 
 	cpumask_set_cpu(cpu, priv->cpumask);
-	spin_lock_init(&priv->lock);
 
 	list_add(&priv->node, &priv_list);
 	return 0;

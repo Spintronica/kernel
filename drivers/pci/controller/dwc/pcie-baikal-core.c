@@ -39,6 +39,8 @@ struct baikal_pcie_of_data {
 };
 
 #if defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS)
+#define PCIE_IATU_REGION_CTRL_2_REG_SHIFT_MODE	BIT(28)
+
 #define BAIKAL_EDMA_WR_CH		4
 #define BAIKAL_EDMA_RD_CH		4
 
@@ -48,6 +50,7 @@ struct baikal_pcie_acpi_data {
 	u32		mem_size;
 };
 
+static const struct baikal_pcie_of_data bl1000_pcie_rc_of_data;
 static const struct baikal_pcie_of_data bm1000_pcie_rc_of_data;
 static const struct baikal_pcie_of_data bs1000_pcie_rc_of_data;
 #endif
@@ -122,6 +125,9 @@ static bool baikal_pcie_link_wait_training_done(struct dw_pcie *pci)
 struct bl1000_pcie {
 	struct dw_pcie		*pci;
 	void __iomem		*apb_base;
+#if defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS)
+	int			edma_irq[BAIKAL_EDMA_WR_CH + BAIKAL_EDMA_RD_CH];
+#endif
 };
 
 static int bl1000_get_resources(struct platform_device *pdev,
@@ -337,6 +343,535 @@ static int bl1000_add_pcie_port(struct platform_device *pdev)
 
 	return 0;
 }
+
+#if defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS)
+static void dw_pcie_writel_ob_unroll(struct dw_pcie *pci, u32 index, u32 reg,
+				     u32 val)
+{
+	dw_pcie_write(pci->atu_base +
+		      PCIE_ATU_UNROLL_BASE(PCIE_ATU_REGION_DIR_OB, index) +
+		      reg, 0x4, val);
+}
+
+static void bl1000_pcie_prog_outbound_atu(struct dw_pcie *pci, int index,
+					  int type, u64 cpu_addr, u64 pci_addr,
+					  u32 size, u32 flags)
+{
+	u32 retries, val;
+
+	cpu_addr = bl1000_pcie_cpu_addr_fixup(pci, cpu_addr);
+
+	dw_pcie_writel_ob_unroll(pci, index, PCIE_ATU_UNR_LOWER_BASE,
+				 lower_32_bits(cpu_addr));
+	dw_pcie_writel_ob_unroll(pci, index, PCIE_ATU_UNR_UPPER_BASE,
+				 upper_32_bits(cpu_addr));
+	dw_pcie_writel_ob_unroll(pci, index, PCIE_ATU_UNR_LOWER_LIMIT,
+				 lower_32_bits(cpu_addr + size - 1));
+	dw_pcie_writel_ob_unroll(pci, index, PCIE_ATU_UNR_LOWER_TARGET,
+				 lower_32_bits(pci_addr));
+	dw_pcie_writel_ob_unroll(pci, index, PCIE_ATU_UNR_UPPER_TARGET,
+				 upper_32_bits(pci_addr));
+	dw_pcie_writel_ob_unroll(pci, index, PCIE_ATU_UNR_REGION_CTRL1, type);
+	dw_pcie_writel_ob_unroll(pci, index, PCIE_ATU_UNR_REGION_CTRL2,
+				 PCIE_ATU_ENABLE | flags);
+
+	/*
+	 * Make sure ATU enable takes effect before any subsequent config
+	 * and I/O accesses.
+	 */
+	for (retries = 0; retries < LINK_WAIT_MAX_IATU_RETRIES; ++retries) {
+		dw_pcie_read(pci->atu_base +
+			     PCIE_ATU_UNROLL_BASE(index, PCIE_ATU_REGION_DIR_OB) +
+			     PCIE_ATU_UNR_REGION_CTRL2, 0x4, &val);
+		if (val & PCIE_ATU_ENABLE)
+			return;
+
+		mdelay(LINK_WAIT_IATU);
+	}
+	dev_err(pci->dev, "Outbound iATU is not being enabled\n");
+}
+
+static void bl1000_pcie_setup_rc_acpi(struct dw_pcie_rp *pp,
+				      const struct baikal_pcie_acpi_data *mem_data)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	acpi_status status;
+	u64 lanes;
+	u32 val;
+	int i;
+
+	/*
+	 * Enable DBI read-only registers for writing/updating configuration.
+	 * Write permission gets disabled towards the end of this function.
+	 */
+	dw_pcie_dbi_ro_wr_en(pci);
+
+	val = dw_pcie_readl_dbi(pci, PCIE_PORT_LINK_CONTROL);
+	val &= ~PORT_LINK_FAST_LINK_MODE;
+	val |= PORT_LINK_DLL_LINK_EN;
+	dw_pcie_writel_dbi(pci, PCIE_PORT_LINK_CONTROL, val);
+
+	status = acpi_evaluate_integer(to_acpi_device(pci->dev)->handle,
+				       "NUML", NULL, &lanes);
+	if (ACPI_FAILURE(status)) {
+		dev_dbg(pci->dev, "failed to get num-lanes\n");
+	} else {
+		pci->num_lanes = lanes;
+
+		/* Set the number of lanes */
+		val &= ~PORT_LINK_FAST_LINK_MODE;
+		val &= ~PORT_LINK_MODE_MASK;
+		switch (pci->num_lanes) {
+		case 1:
+			val |= PORT_LINK_MODE_1_LANES;
+			break;
+		case 2:
+			val |= PORT_LINK_MODE_2_LANES;
+			break;
+		case 4:
+			val |= PORT_LINK_MODE_4_LANES;
+			break;
+		default:
+			dev_err(pci->dev, "NUML %u: invalid value\n", pci->num_lanes);
+			goto skip_lanes;
+		}
+		dw_pcie_writel_dbi(pci, PCIE_PORT_LINK_CONTROL, val);
+
+		/* Set link width speed control register */
+		val = dw_pcie_readl_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL);
+		val &= ~PORT_LOGIC_LINK_WIDTH_MASK;
+		switch (pci->num_lanes) {
+		case 1:
+			val |= PORT_LOGIC_LINK_WIDTH_1_LANES;
+			break;
+		case 2:
+			val |= PORT_LOGIC_LINK_WIDTH_2_LANES;
+			break;
+		case 4:
+			val |= PORT_LOGIC_LINK_WIDTH_4_LANES;
+			break;
+		}
+		dw_pcie_writel_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL, val);
+	}
+
+skip_lanes:
+	/* Setup RC BARs */
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, 0x00000004);
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_1, 0x00000000);
+
+	/* Setup interrupt pins */
+	val = dw_pcie_readl_dbi(pci, PCI_INTERRUPT_LINE);
+	val &= 0xffff00ff;
+	val |= 0x00000100;
+	dw_pcie_writel_dbi(pci, PCI_INTERRUPT_LINE, val);
+
+	/* Setup bus numbers */
+	val = dw_pcie_readl_dbi(pci, PCI_PRIMARY_BUS);
+	val &= 0xff000000;
+	val |= 0x00ff0100;
+	dw_pcie_writel_dbi(pci, PCI_PRIMARY_BUS, val);
+
+	/* Setup command register */
+	val = dw_pcie_readl_dbi(pci, PCI_COMMAND);
+	val &= 0xffff0000;
+	val |= PCI_COMMAND_IO | PCI_COMMAND_MEMORY |
+		PCI_COMMAND_MASTER | PCI_COMMAND_SERR;
+	dw_pcie_writel_dbi(pci, PCI_COMMAND, val);
+
+	dw_pcie_cap_set(pci, IATU_UNROLL);
+	pci->num_ob_windows = 4;
+	pci->num_ib_windows = 0;
+
+	for (i = 0; i < pci->num_ob_windows; ++i)
+		dw_pcie_disable_atu(pci, PCIE_ATU_REGION_DIR_OB, i);
+
+	/* Program ATU */
+	bl1000_pcie_prog_outbound_atu(pci, 0, PCIE_ATU_TYPE_CFG0,
+				      pp->cfg0_base, 0,
+				      SZ_2M,
+				      PCIE_IATU_REGION_CTRL_2_REG_SHIFT_MODE);
+	bl1000_pcie_prog_outbound_atu(pci, 1, PCIE_ATU_TYPE_CFG1,
+				      pp->cfg0_base, 0,
+				      pp->cfg0_size,
+				      PCIE_IATU_REGION_CTRL_2_REG_SHIFT_MODE);
+	bl1000_pcie_prog_outbound_atu(pci, 2, PCIE_ATU_TYPE_MEM,
+				      mem_data->mem_base, mem_data->mem_bus_addr,
+				      mem_data->mem_size, 0);
+	bl1000_pcie_prog_outbound_atu(pci, 3, PCIE_ATU_TYPE_IO,
+				      pp->io_base, pp->io_bus_addr,
+				      pp->io_size, 0);
+
+	dw_pcie_writel_dbi(pci, PCI_BASE_ADDRESS_0, 0);
+
+	/* Set eDMA region */
+	pci->edma.reg_base = pci->atu_base + DEFAULT_DBI_DMA_OFFSET;
+
+	/* Program correct class for RC */
+	dw_pcie_writew_dbi(pci, PCI_CLASS_DEVICE, PCI_CLASS_BRIDGE_PCI);
+
+	val = dw_pcie_readl_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL);
+	val |= PORT_LOGIC_SPEED_CHANGE;
+	dw_pcie_writel_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL, val);
+
+	dw_pcie_dbi_ro_wr_dis(pci);
+}
+
+static int bl1000_pcie_get_res_acpi(struct acpi_device *adev,
+				    struct acpi_device **res_dev,
+				    struct bl1000_pcie *bl,
+				    struct baikal_pcie_acpi_data *mem_data)
+{
+	struct device *dev = &adev->dev;
+	struct dw_pcie_rp *pp = &bl->pci->pp;
+	struct resource_entry *entry;
+	struct list_head list, *pos;
+	struct fwnode_handle *fwnode;
+	int ret;
+	unsigned long flags = IORESOURCE_MEM;
+
+	fwnode = fwnode_get_named_child_node(&adev->fwnode, "RES0");
+	if (!fwnode) {
+		dev_err(dev, "failed to get RES0 subdevice\n");
+		return -EINVAL;
+	}
+
+	*res_dev = to_acpi_device_node(fwnode);
+	if (!*res_dev) {
+		dev_err(dev, "RES0 is not an acpi device node\n");
+		return -EINVAL;
+	}
+
+	INIT_LIST_HEAD(&list);
+	ret = acpi_dev_get_resources(*res_dev, &list,
+				     acpi_dev_filter_resource_type_cb,
+				     (void *)flags);
+	if (ret < 0) {
+		dev_err(dev, "failed to parse RES0._CRS method, error code %d\n", ret);
+		return ret;
+	}
+
+	if (ret != 4) {
+		dev_err(dev,
+			"invalid number of MEM resources present in RES0._CRS (%i, need 4)\n", ret);
+		return -EINVAL;
+	}
+
+	/* ECAM */
+	pos = list.next;
+	entry = list_entry(pos, struct resource_entry, node);
+	pp->cfg0_size = resource_size(entry->res);
+	pp->cfg0_base = entry->res->start;
+
+	/* DBI */
+	pos = pos->next;
+	entry = list_entry(pos, struct resource_entry, node);
+	bl->pci->dbi_base = devm_ioremap_resource(dev, entry->res);
+	if (IS_ERR(bl->pci->dbi_base)) {
+		dev_err(dev, "error with dbi ioremap\n");
+		ret = PTR_ERR(bl->pci->dbi_base);
+		return ret;
+	}
+
+	/* ATU */
+	pos = pos->next;
+	entry = list_entry(pos, struct resource_entry, node);
+	bl->pci->atu_base = devm_ioremap_resource(dev, entry->res);
+	if (IS_ERR(bl->pci->atu_base)) {
+		dev_err(dev, "error with atu ioremap\n");
+		ret = PTR_ERR(bl->pci->atu_base);
+		return ret;
+	}
+	bl->pci->atu_size = resource_size(entry->res);
+
+	/* APB */
+	pos = pos->next;
+	entry = list_entry(pos, struct resource_entry, node);
+	bl->apb_base = devm_ioremap_resource(dev, entry->res);
+	if (IS_ERR(bl->apb_base)) {
+		dev_err(dev, "error with apb ioremap\n");
+		ret = PTR_ERR(bl->apb_base);
+		return ret;
+	}
+
+	acpi_dev_free_resource_list(&list);
+
+	/* Non-prefetchable memory */
+	INIT_LIST_HEAD(&list);
+	flags = IORESOURCE_MEM;
+	ret = acpi_dev_get_resources(adev, &list,
+				     acpi_dev_filter_resource_type_cb,
+				     (void *)flags);
+	if (ret < 0) {
+		dev_err(dev, "failed to parse _CRS method, error code %d\n", ret);
+		return ret;
+	}
+
+	if (ret != 1) {
+		dev_err(dev, "invalid number of MEM resources present in _CRS (%i, need 1)\n", ret);
+		return -EINVAL;
+	}
+
+	pos = list.next;
+	entry = list_entry(pos, struct resource_entry, node);
+	mem_data->mem_base = entry->res->start;
+	mem_data->mem_size = resource_size(entry->res);
+	mem_data->mem_bus_addr = entry->res->start - entry->offset;
+
+	acpi_dev_free_resource_list(&list);
+
+	/* I/O */
+	INIT_LIST_HEAD(&list);
+	flags = IORESOURCE_IO;
+	ret = acpi_dev_get_resources(adev, &list,
+				     acpi_dev_filter_resource_type_cb,
+				     (void *)flags);
+	if (ret < 0) {
+		dev_err(dev, "failed to parse _CRS method, error code %d\n", ret);
+		return ret;
+	}
+
+	if (ret != 1) {
+		dev_err(dev, "invalid number of IO resources present in _CRS (%i, need 1)\n", ret);
+		return -EINVAL;
+	}
+
+	pos = list.next;
+	entry = list_entry(pos, struct resource_entry, node);
+	pp->io_base = entry->res->start;
+	pp->io_size = resource_size(entry->res);
+	pp->io_bus_addr = entry->res->start - entry->offset;
+
+	acpi_dev_free_resource_list(&list);
+	return 0;
+}
+
+static int bl1000_pcie_get_irq_acpi(struct device *dev,
+				    struct acpi_device *res_dev,
+				    struct bl1000_pcie *bl)
+{
+	struct dw_pcie_rp *pp = &bl->pci->pp;
+	struct resource res;
+	int index, ret = 0;
+
+	memset(&res, 0, sizeof(res));
+
+	/* eDMA interrupts */
+	for (index = 0; index < BAIKAL_EDMA_WR_CH + BAIKAL_EDMA_RD_CH; index++) {
+		ret = acpi_irq_get(res_dev->handle, index, &res);
+		if (ret)
+			break;
+		if (res.flags & IORESOURCE_BITS) {
+			struct irq_data *irqd;
+
+			irqd = irq_get_irq_data(res.start);
+			if (!irqd)
+				return -ENXIO;
+
+			irqd_set_trigger_type(irqd, res.flags & IORESOURCE_BITS);
+		}
+		bl->edma_irq[index] = res.start;
+	}
+	bl->pci->edma.nr_irqs = index;
+
+	/* RC interrupts */
+	if (ret == 0)
+		ret = acpi_irq_get(res_dev->handle, index, &res);
+	if (ret) {
+		/* optional */
+		pp->irq = 0;
+		return 0;
+	}
+
+	if (res.flags & IORESOURCE_BITS) {
+		struct irq_data *irqd;
+
+		irqd = irq_get_irq_data(res.start);
+		if (!irqd)
+			return -ENXIO;
+
+		irqd_set_trigger_type(irqd, res.flags & IORESOURCE_BITS);
+	}
+
+	pp->irq = res.start;
+
+	ret = devm_request_irq(dev, pp->irq, bl1000_pcie_intr_irq_handler,
+			       IRQF_SHARED, "bl1000-pcie-intr", bl);
+	if (ret) {
+		dev_err(dev, "failed to request IRQ %d\n", pp->irq);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int bl1000_get_acpi_data(struct device *dev, struct bl1000_pcie *bl,
+				struct baikal_pcie_acpi_data *mem_data)
+{
+	struct acpi_device *adev = to_acpi_device(dev), *res_dev;
+	int ret;
+
+	ret = bl1000_pcie_get_res_acpi(adev, &res_dev, bl, mem_data);
+	if (ret) {
+		dev_err(dev, "failed to get resource info\n");
+		return ret;
+	}
+
+	ret = bl1000_pcie_get_irq_acpi(dev, res_dev, bl);
+	if (ret) {
+		dev_err(dev, "failed to get irq info\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int bl1000_pcie_acpi_edma_irq_vector(struct device *dev, unsigned int nr)
+{
+	struct bl1000_pcie *bl = dev_get_drvdata(dev);
+
+	if (nr >= bl->pci->edma.nr_irqs)
+		return -EINVAL;
+
+	return bl->edma_irq[nr];
+}
+
+static u64 bl1000_pcie_acpi_edma_address(struct device *dev, phys_addr_t cpu_addr)
+{
+	struct bl1000_pcie *bl = dev_get_drvdata(dev);
+	struct pci_bus *bus = bl->pci->pp.bridge->bus;
+	struct pci_bus_region region;
+	struct resource res = {
+		.flags = IORESOURCE_MEM,
+		.start = cpu_addr,
+		.end = cpu_addr,
+	};
+
+	pcibios_resource_to_bus(bus, &region, &res);
+	return region.start;
+}
+
+static const struct dw_edma_plat_ops bl1000_pcie_acpi_edma_ops = {
+	.irq_vector = bl1000_pcie_acpi_edma_irq_vector,
+	.pci_address = bl1000_pcie_acpi_edma_address,
+};
+
+static int bl1000_pcie_init(struct pci_config_window *cfg)
+{
+	struct device *dev = cfg->parent;
+	struct bl1000_pcie *bl;
+	struct dw_pcie *pci;
+	struct dw_pcie_rp *pp;
+	struct baikal_pcie_acpi_data mem_data = {};
+	int ret;
+
+	pci = devm_kzalloc(dev, sizeof(*pci), GFP_KERNEL);
+	if (!pci)
+		return -ENOMEM;
+
+	pci->dev = dev;
+	pci->ops = &bl1000_pcie_rc_of_data.dw_pcie_ops;
+
+	bl = devm_kzalloc(dev, sizeof(*bl), GFP_KERNEL);
+	if (!bl)
+		return -ENOMEM;
+
+	cfg->priv = bl;
+	bl->pci = pci;
+	dev_set_drvdata(dev, bl);
+
+	ret = bl1000_get_acpi_data(dev, bl, &mem_data);
+	if (ret) {
+		dev_err(dev, "failed to get data from ACPI\n");
+		return ret;
+	}
+
+	pp = &pci->pp;
+	raw_spin_lock_init(&pp->lock);
+	pp->ops = &bl1000_pcie_host_ops;
+	pp->va_cfg0_base = devm_pci_remap_cfgspace(dev, pp->cfg0_base,
+						   pp->cfg0_size);
+	if (!pp->va_cfg0_base) {
+		dev_err(dev, "error with ioremap\n");
+		return -ENOMEM;
+	}
+
+	ret = dma_coerce_mask_and_coherent(dev, DMA_BIT_MASK(64));
+	if (ret) {
+		dev_err(dev, "failed to enable DMA\n");
+		return ret;
+	}
+
+	ret = bl1000_pcie_host_init(pp);
+	if (ret) {
+		dev_err(dev, "failed to initialize host\n");
+		return ret;
+	}
+
+	dw_pcie_version_detect(pci);
+	bl1000_pcie_setup_rc_acpi(pp, &mem_data);
+
+	/* eDMA */
+	if (pci->edma.nr_irqs == BAIKAL_EDMA_WR_CH + BAIKAL_EDMA_RD_CH) {
+		if (!dev->dma_parms)
+			dev->dma_parms = devm_kzalloc(dev,
+						      sizeof(*dev->dma_parms),
+						      GFP_KERNEL);
+
+		pci->edma.ops = &bl1000_pcie_acpi_edma_ops;
+		ret = dw_pcie_edma_detect(pci);
+		if (ret) {
+			dev_err(dev, "failed to initialize eDMA\n");
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static void __iomem *bl1000_pcie_map_bus(struct pci_bus *bus,
+					 unsigned int devfn, int where)
+{
+	struct pci_config_window *cfg = bus->sysdata;
+	struct bl1000_pcie *bl = cfg->priv;
+	unsigned int devfn_shift = cfg->ops->bus_shift - 8;
+	unsigned int busn = bus->number;
+	void __iomem *base;
+
+	if (!bl->pci->pp.bridge)
+		bl->pci->pp.bridge = to_pci_host_bridge(bus->bridge);
+
+	if (bus->number != cfg->busr.start && !bl1000_pcie_link_up(bl->pci))
+		return NULL;
+
+	if (bus->number == cfg->busr.start) {
+		/*
+		 * The DW PCIe core doesn't filter out transactions to other
+		 * devices/functions on the root bus num, so we do this here.
+		 */
+		if (PCI_SLOT(devfn) > 0)
+			return NULL;
+		else
+			return bl->pci->dbi_base + where;
+	}
+
+	if (busn < cfg->busr.start || busn > cfg->busr.end)
+		return NULL;
+
+	busn -= cfg->busr.start;
+	base = cfg->win + (busn << cfg->ops->bus_shift);
+	return base + (devfn << devfn_shift) + where;
+}
+
+const struct pci_ecam_ops baikal_l_pcie_ecam_ops = {
+	.bus_shift	= 20,
+	.init		= bl1000_pcie_init,
+	.pci_ops	= {
+		.map_bus	= bl1000_pcie_map_bus,
+		.read		= pci_generic_config_read,
+		.write		= pci_generic_config_write
+	}
+};
+#endif
 
 #define BM1000_PCIE_GPR_RESET_BASE		0x00
 #define BM1000_PCIE_GPR_RESET(x)		(((x) * 0x20) + BM1000_PCIE_GPR_RESET_BASE)
@@ -923,8 +1458,6 @@ static void bm1000_pcie_prog_outbound_atu(struct dw_pcie *pci, int index,
 	}
 	dev_err(pci->dev, "Outbound iATU is not being enabled\n");
 }
-
-#define PCIE_IATU_REGION_CTRL_2_REG_SHIFT_MODE	BIT(28)
 
 static void bm1000_pcie_setup_rc_acpi(struct dw_pcie_rp *pp,
 				      const struct baikal_pcie_acpi_data *mem_data)
@@ -1821,13 +2354,7 @@ static int bs1000_add_pcie_port(struct platform_device *pdev)
 }
 
 #if defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS)
-static void dw_pcie_writel_ob_unroll(struct dw_pcie *pci, u32 index, u32 reg,
-				     u32 val)
-{
-	dw_pcie_write(pci->atu_base +
-		      PCIE_ATU_UNROLL_BASE(PCIE_ATU_REGION_DIR_OB, index) +
-		      reg, 0x4, val);
-}
+void dw_pcie_writel_ob_unroll(struct dw_pcie *pci, u32 index, u32 reg, u32 val);
 
 static void bs1000_pcie_prog_outbound_atu(struct dw_pcie *pci, int index,
 					  int type, u64 cpu_addr, u64 pci_addr,
