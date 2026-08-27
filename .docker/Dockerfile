@@ -1,7 +1,7 @@
 FROM debian:trixie-slim
 LABEL maintainer="Nick Zhuravlev <zhuravlevnd@spintronica.ru>"
 
-RUN sed -i 's/deb.debian.org/mirror.docker.ru/g' /etc/apt/sources.list.d/debian.sources
+RUN sed -i 's/deb.debian.org/mirror.yandex.ru/g' /etc/apt/sources.list.d/debian.sources
 
 RUN dpkg --add-architecture arm64
 RUN apt-get update -y
