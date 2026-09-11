@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Device tree source for Spintronica 1L01ST v1.0 board
+ * Device tree source for Spintronica 1L01ST-MB-Rev1 board.
  */
 
 /dts-v1/;
@@ -12,7 +12,7 @@
 #include <dt-bindings/input/linux-event-codes.h>
 
 / {
-	model = "Spintronica 1L01ST";
+	model = "Elpitech ET124";
 	compatible = "baikal,dbl", "baikal,bl1000";
 
 	aliases {
@@ -53,7 +53,7 @@
 		pwr {
 			label = "PWR Button";
 			linux,code = <116>;
-			gpios = <&portf 15 GPIO_ACTIVE_LOW>;
+			gpios = <&porte 27 GPIO_ACTIVE_LOW>;
 			wakeup-source;
 			wakeup-event-action = <EV_ACT_DEASSERTED>;
 		};
@@ -107,11 +107,6 @@
 	status = "okay";
 	pinctrl = <&hsp_lsp_pin2_i2c1_scl>,
 		  <&hsp_lsp_pin3_i2c1_sda>;
-
-	rtc@54 {
-		reg = <0x54>;
-		compatible = "nxp,pcf2127";
-	};
 };
 
 &hsp_i2c2 {
@@ -163,7 +158,6 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
-	reset-gpios = <&porte 16 GPIO_ACTIVE_LOW>;
 	baikal,audio-enable;
 	backlight {
 		min-brightness-level = <10>;
@@ -215,10 +209,6 @@
 };
 
 &sc_gpio32 {
-	status = "okay";
-};
-
-&hsp_gpio32 {
 	status = "okay";
 };
 
@@ -278,13 +268,13 @@ et124\n\
 [pincfg]\n\
 0x0a 0x0221413f\n\
 0x0b 0x40000000\n\
-0x0c 0x02a19020\n\
+0x0c 0x02a19120\n\
 0x0d 0x40000000\n\
-0x0e 0x01813021\n\
+0x0e 0x01813121\n\
 0x0f 0x40000000\n\
 0x11 0x40000000\n\
-0x1f 0x90460060\n\
-0x20 0x90460070\n\
+0x1f 0x40000000\n\
+0x20 0x40000000\n\
 [verb]\n\
 0x18 0xf01 0x04\n";
 };
@@ -297,7 +287,6 @@ et124\n\
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
-	reset-gpios = <&porte 18 GPIO_ACTIVE_LOW>;
 	baikal,audio-enable;
 };
 

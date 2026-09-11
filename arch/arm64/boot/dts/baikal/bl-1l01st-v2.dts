@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Device tree source for Spintronica 1L02ST-MB-Rev3 board.
+ * Device tree source for Spintronica 1L01ST-MB-Rev2 board.
  */
 
 /dts-v1/;
 
-#define USE_BL1000_PCIE1_SS_MODE	1
+#define USE_BL1000_PCIE1_SS_MODE	3
 
 #include "bl1000.dtsi"
 #include <dt-bindings/input/gpio-keys.h>
 #include <dt-bindings/input/linux-event-codes.h>
 
 / {
-	model = "Spintronica 1L02ST";
+	model = "Spintronica 1L01ST";
 	compatible = "baikal,dbl", "baikal,bl1000";
 
 	aliases {
@@ -41,10 +41,15 @@
 
 	chosen { };
 
+	uart_clk: uart_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+		clock-output-names = "uartclk";
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
-		pinctrl = <&hsp_lsp_pin14_gpio32>,
-			  <&hsp_lsp_pin15_gpio32>; // ???
 		pwr {
 			label = "PWR Button";
 			linux,code = <116>;
@@ -54,41 +59,76 @@
 		};
 	};
 
-	rfkill {
+	rfkill-wlan {
 		compatible = "rfkill-gpio";
-		label = "rfkill-m2e";
+		label = "rfkill-m2e-wlan";
 		radio-type = "wlan";
-		shutdown-gpios = <&portf 9 GPIO_ACTIVE_HIGH>;
+		shutdown-gpios = <&porte 5 GPIO_ACTIVE_HIGH>;
 	};
 
+	rfkill-bt {
+		compatible = "rfkill-gpio";
+		label = "rfkill-m2e-bt";
+		radio-type = "bluetooth";
+		shutdown-gpios = <&porte 7 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &ehsp_pcie0_p0 {
 	status = "okay";
+	pinctrl = <&sc_emmc_mux_gpio1>;
 	num-lanes = <4>;
-	pinctrl = <&hsp_lsp_pin29_gpio32>;
-	reset-gpios = <&portf 29 GPIO_ACTIVE_LOW>;
+	reset-gpios = <&porte 1 GPIO_ACTIVE_LOW>;
 };
 
 &ehsp_pcie1_p0 {
 	status = "okay";
-	num-lanes = <2>;
-	reset-gpios = <&portc 1 GPIO_ACTIVE_LOW>;
+	num-lanes = <4>;
+	reset-gpios = <&porte 4 GPIO_ACTIVE_LOW>;
 };
 
-&ehsp_pcie1_p3 {
+&ehsp_pcie1_p2 {
 	status = "okay";
 	num-lanes = <1>;
-	pinctrl = <&hsp_lsp_pin10_gpio32>;
-	reset-gpios = <&portf 10 GPIO_ACTIVE_LOW>;
+	reset-gpios = <&porte 2 GPIO_ACTIVE_LOW>;
 };
 
 &hsp_edp_phy {
 	status = "okay";
 };
 
-&edp_phy {
-	cdns,num-lanes = <2>;
+&hsp_i2c0 {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin0_i2c0_scl>,
+		  <&hsp_lsp_pin1_i2c0_sda>;
+};
+
+&hsp_i2c1 {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin2_i2c1_scl>,
+		  <&hsp_lsp_pin3_i2c1_sda>;
+
+	rtc@54 {
+		reg = <0x54>;
+		compatible = "nxp,pcf2127";
+	};
+};
+
+&hsp_i2c2 {
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin4_i2c2_scl>,
+		  <&hsp_lsp_pin5_i2c2_sda>;
+
+	eeprom@54 {
+		compatible = "st,m24256";
+		reg = <0x54>;
+	};
+};
+
+&hsp_i2c3 { /* Connected to DIMM SPDs */
+	status = "okay";
+	pinctrl = <&hsp_lsp_pin6_i2c3_scl>,
+		  <&hsp_lsp_pin7_i2c3_sda>;
 };
 
 &hsp_lsp_pinctrl0 {
@@ -123,6 +163,8 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	reset-gpios = <&porte 16 GPIO_ACTIVE_LOW>;
+	baikal,audio-enable;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -139,29 +181,9 @@
 	ethphy: ethernet-phy@3 {
 		compatible = "ethernet-phy-ieee802.3-c22";
 		reg = <0x3>;
-		interrupt-parent = <&portf>;
-		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-parent = <&porte>;
+		interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
 	};
-};
-
-&sc_emmc1_sdhci {
-	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc1>,
-		  <&sc_emmc_hc1_1_8v>,
-		  <&sc_emmc_hc1_mem_pwrup>,
-		  <&sc_emmc_pu_hc1_cmd_dat_0_7>,
-		  <&sc_emmc_pd_hc1_dqs>;
-	bus-width = <4>;
-};
-
-&sc_emmc2_sdhci {
-	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc2>,
-		  <&sc_emmc_hc2_1_8v>,
-		  <&sc_emmc_hc2_mem_pwrup>,
-		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
-		  <&sc_emmc_pd_hc2_dqs>;
-	bus-width = <4>;
 };
 
 &sc_emmc_pinctrl {
@@ -179,14 +201,13 @@
 &sc_gmac {
 	status = "okay";
 	pinctrl = <&sc_gmac_sdio_bit0_mode1>,
-		  <&hsp_lsp_pin26_gpio32>,
-		  <&hsp_lsp_pin27_gpio32>;
+		  <&sc_emmc_mux_gpio2>;
 
 	phy-handle = <&ethphy>;
 	phy-mode = "rgmii-rxid";
 
-	snps,reset-gpios = <&portf 26 GPIO_ACTIVE_LOW>;
-	snps,reset-delays-us = <10 10200 60000>;
+	snps,reset-gpios = <&porte 12 GPIO_ACTIVE_LOW>;
+	snps,reset-delays-us = <10 10000 50000>;
 };
 
 &sc_gmac_sdio_pinctrl {
@@ -202,10 +223,6 @@
 };
 
 &sc_gpio30 {
-	status = "okay";
-};
-
-&hsp_lsp_pinctrl0 {
 	status = "okay";
 };
 
@@ -257,21 +274,19 @@
 	patch-data = "[codec]\n\
 0x111d76d5 0x00000100 0\n\
 [model]\n\
-1l02st\n\
-[verb]\n\
-0x0d 0x707 0x40\n\
-0x1f 0x71f 0x98\n\
-0x1f 0x71e 0x46\n\
-0x1f 0x71d 0x01\n\
+et124\n\
 [pincfg]\n\
-0x0a 0x02a1101f\n\
-0x0b 0x02211010\n\
-0x0c 0x01a19020\n\
-0x0e 0x01014021\n\
-0x0f 0x01813040\n\
+0x0a 0x0221413f\n\
+0x0b 0x40000000\n\
+0x0c 0x02a19020\n\
+0x0d 0x40000000\n\
+0x0e 0x01813021\n\
+0x0f 0x40000000\n\
 0x11 0x40000000\n\
-0x1f 0x98460160\n\
-0x20 0x40000000\n";
+0x1f 0x90460060\n\
+0x20 0x90460070\n\
+[verb]\n\
+0x18 0xf01 0x04\n";
 };
 
 &ehsp_dp_phy {
@@ -282,6 +297,16 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	reset-gpios = <&porte 18 GPIO_ACTIVE_LOW>;
+	baikal,audio-enable;
+};
+
+&hsp_usb1_phy20_l0 {
+	status = "okay";
+};
+
+&hsp_usb1_phy20_l1 {
+	status = "okay";
 };
 
 &hsp_usb1_l0 {
@@ -296,8 +321,6 @@
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "high-speed";
-	phys = <&hsp_usb1_phy10g_l1>;
-	phy-names = "cdns3,usb3-phy";
 };
 
 &hsp_usb1_phy10g {
@@ -312,26 +335,24 @@
 	status = "okay";
 };
 
-&sc_i2c1 {	// M2E
+&hsp_uart1 {
 	status = "okay";
-	pinctrl = <&sc_lsp_pin2_i2c1_scl>,
-		  <&sc_lsp_pin3_i2c1_sda>;
+	pinctrl = <&hsp_lsp_pin10_uart1_rxd>,
+		  <&hsp_lsp_pin11_uart1_txd>;
 };
 
-&sc_i2c2 {
+&hsp_uart2 {
 	status = "okay";
-	pinctrl = <&sc_lsp_pin4_i2c2_scl>,
-		  <&sc_lsp_pin5_i2c2_sda>;
+	pinctrl = <&hsp_lsp_pin12_uart2_rxd>,
+		  <&hsp_lsp_pin13_uart2_txd>;
+};
 
-	fru: eeprom@50 {
-		compatible = "atmel,24c256";
-		reg = <0x50>;
-	};
+&hsp_usb0_phy20_l0 {
+	status = "okay";
+};
 
-	rtc: rtc@51 {
-		compatible = "haoyu,hym8563";
-		reg = <0x51>;
-	};
+&hsp_usb0_phy20_l1 {
+	status = "okay";
 };
 
 &hsp_usb0_l0 {
@@ -362,13 +383,31 @@
 	status = "okay";
 };
 
+&sc_i2c0 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin0_i2c0_scl>,
+		  <&sc_lsp_pin1_i2c0_sda>;
+};
+
+&sc_i2c1 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin2_i2c1_scl>,
+		  <&sc_lsp_pin3_i2c1_sda>;
+};
+
+&sc_i2c2 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin4_i2c2_scl>,
+		  <&sc_lsp_pin5_i2c2_sda>;
+};
+
 &sc_i2c3 {
 	status = "okay";
 	pinctrl = <&sc_lsp_pin6_i2c3_scl>,
 		  <&sc_lsp_pin7_i2c3_sda>;
 
-	edid: eeprom@50 {
-		compatible = "atmel,24c32";
+	fru: eeprom@50 {
+		compatible = "atmel,24c256";
 		pagesize = <32>;
 		reg = <0x50>;
 	};
