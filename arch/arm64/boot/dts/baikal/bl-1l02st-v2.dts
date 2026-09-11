@@ -140,7 +140,7 @@
 	};
 };
 
-&sc_emmc1 {
+&sc_emmc1_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc1>,
 		  <&sc_emmc_hc1_1_8v>,
@@ -150,7 +150,7 @@
 	bus-width = <4>;
 };
 
-&sc_emmc2 {
+&sc_emmc2_sdhci {
 	status = "okay";
 	pinctrl = <&sc_emmc_mux_emmc2>,
 		  <&sc_emmc_hc2_1_8v>,
