@@ -123,7 +123,6 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
-	baikal,audio-enable;
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
