@@ -289,7 +289,7 @@
 &hsp_usb1_l0 {
 	status = "okay";
 	dr_mode = "host";
-	maximum-speed = "super-speed";
+	maximum-speed = "high-speed";
 	phys = <&hsp_usb1_phy10g_l0>;
 	phy-names = "cdns3,usb3-phy";
 };
@@ -339,7 +339,7 @@
 &hsp_usb0_l0 {
 	status = "okay";
 	dr_mode = "host";
-	maximum-speed = "super-speed";
+	maximum-speed = "super-speed-plus";
 	phys = <&hsp_usb0_phy10g_l0>;
 	phy-names = "cdns3,usb3-phy";
 };
@@ -347,7 +347,7 @@
 &hsp_usb0_l1 {
 	status = "okay";
 	dr_mode = "host";
-	maximum-speed = "super-speed";
+	maximum-speed = "super-speed-plus";
 	phys = <&hsp_usb0_phy10g_l1>;
 	phy-names = "cdns3,usb3-phy";
 };
