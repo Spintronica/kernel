@@ -9,6 +9,8 @@
  */
 
 #include <linux/clk.h>
+#include <linux/cpu.h>
+#include <linux/cpuhplock.h>
 #include <linux/debugfs.h>
 #include <linux/pm_runtime.h>
 
@@ -1048,13 +1050,6 @@ static irqreturn_t baikal_dp_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	if (intrstatus & BAIKAL_DP_INTERRUPT_GP_TIMER_MASK) {
-		u64 t0 = ktime_get_ns();
-		baikal_dp_pcm_push_tx(&dp->aud_dev);
-		dp->counters[18] = ktime_get_ns() - t0;
-		dp->counters[4]++;
-	}
-
 	if (intrstatus & BAIKAL_DP_INTERRUPT_REPLY_RCVD_MASK) {
 		dp->counters[3]++;
 	}
@@ -1067,6 +1062,42 @@ static irqreturn_t baikal_dp_irq_handler(int irq, void *data)
 	if (intrstatus & BAIKAL_DP_INTERRUPT_HPDPULSE_MASK) {
 		schedule_delayed_work(&dp->hpd_pulse_work, 0);
 	}
+
+	if (intrstatus & BAIKAL_DP_INTERRUPT_GP_TIMER_MASK) {
+		u64 t0 = ktime_get_ns();
+		baikal_dp_pcm_push_tx(&dp->aud_dev);
+		dp->counters[18] = ktime_get_ns() - t0;
+		dp->counters[4]++;
+
+		dp->cpu = cpu_logical_map(smp_processor_id());
+		if (dp->cpu != dp->prev_cpu)
+			return IRQ_WAKE_THREAD;
+	}
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t baikal_dp_thread_fn(int irq, void *data)
+{
+	struct baikal_dp *dp = (struct baikal_dp *)data;
+	struct device *cpu_dev;
+	int ret;
+
+	if (dp->prev_cpu != U64_MAX) {
+		cpus_read_lock();
+		cpu_dev = get_cpu_device(get_logical_index(dp->prev_cpu));
+		if (cpu_dev)
+			dev_pm_qos_update_request(cpu_dev->power.qos->resume_latency_req,
+						  PM_QOS_RESUME_LATENCY_NO_CONSTRAINT);
+		cpus_read_unlock();
+	}
+
+	cpu_dev = get_cpu_device(get_logical_index(dp->cpu));
+	ret = dev_pm_qos_update_request(cpu_dev->power.qos->resume_latency_req, 1);
+	if (ret < 0)
+		dp->prev_cpu = U64_MAX;
+	else
+		dp->prev_cpu = dp->cpu;
 
 	return IRQ_HANDLED;
 }
@@ -1227,6 +1258,7 @@ int baikal_dp_probe(struct platform_device *pdev)
 
 	baikal_dp_debugfs_init(dp);
 
+	dp->prev_cpu = dp->cpu = U64_MAX;
 	dp->tx_link_config.vs_level = 0;
 	dp->tx_link_config.pe_level = 0;
 
@@ -1254,8 +1286,8 @@ int baikal_dp_probe(struct platform_device *pdev)
 		goto error;
 	}
 
-	ret = devm_request_threaded_irq(dp->dev, irq, NULL,
-					baikal_dp_irq_handler, IRQF_ONESHOT,
+	ret = devm_request_threaded_irq(dp->dev, irq, baikal_dp_irq_handler,
+					baikal_dp_thread_fn, IRQF_ONESHOT,
 					dev_name(dp->dev), dp);
 
 	if (ret < 0)

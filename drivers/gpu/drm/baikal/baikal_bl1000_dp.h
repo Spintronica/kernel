@@ -215,6 +215,8 @@ struct baikal_dp {
 	unsigned int colorimetry_through_vsc : 1;
 	struct baikal_dp_aud_dev aud_dev;
 	u32 counters[20];
+	u64 prev_cpu;
+	u64 cpu;
 };
 
 /**
