@@ -5173,6 +5173,7 @@ static void xhci_hcd_init_usb2_data(struct xhci_hcd *xhci, struct usb_hcd *hcd)
 static void xhci_hcd_init_usb3_data(struct xhci_hcd *xhci, struct usb_hcd *hcd)
 {
 	unsigned int minor_rev;
+	struct device *dev = xhci_to_hcd(xhci)->self.sysdev;
 
 	/*
 	 * Early xHCI 1.1 spec did not mention USB 3.1 capable hosts
@@ -5183,7 +5184,9 @@ static void xhci_hcd_init_usb3_data(struct xhci_hcd *xhci, struct usb_hcd *hcd)
 	 * Some USB 3.1 capable hosts therefore have sbrn 0x30, and
 	 * minor revision set to 0x1 instead of 0x10.
 	 */
-	if (xhci->usb3_rhub.min_rev == 0x1)
+	if (usb_get_maximum_speed(dev) != USB_SPEED_SUPER_PLUS)
+		minor_rev = 0;
+	else if (xhci->usb3_rhub.min_rev == 0x1)
 		minor_rev = 1;
 	else
 		minor_rev = xhci->usb3_rhub.min_rev / 0x10;
