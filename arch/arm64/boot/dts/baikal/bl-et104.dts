@@ -429,8 +429,6 @@ et104\n\
 	status = "okay";
 	dr_mode = "host";
 	maximum-speed = "high-speed";
-	phys = <&hsp_usb1_phy10g_l1>;
-	phy-names = "cdns3,usb3-phy";
 };
 
 &hsp_usb1_phy10g {
@@ -438,10 +436,6 @@ et104\n\
 };
 
 &hsp_usb1_phy10g_l0 {
-	status = "okay";
-};
-
-&hsp_usb1_phy10g_l1 {
 	status = "okay";
 };
 

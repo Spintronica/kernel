@@ -320,10 +320,6 @@ et124\n\
 	status = "okay";
 };
 
-&hsp_usb1_phy10g_l1 {
-	status = "okay";
-};
-
 &hsp_uart1 {
 	status = "okay";
 	pinctrl = <&hsp_lsp_pin10_uart1_rxd>,
