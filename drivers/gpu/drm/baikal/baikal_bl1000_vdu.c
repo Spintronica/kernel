@@ -9,6 +9,7 @@
 #include <linux/firmware/baikal/baikal-smc.h>
 #include <linux/platform_device.h>
 
+#include <drm/drm_atomic.h>
 #include <drm/drm_debugfs.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_fbdev_dma.h>
@@ -19,7 +20,41 @@
 #include "baikal_bl1000_drm.h"
 #include "baikal_bl1000_vdu.h"
 
-static int baikal_vdu_l1000_probe(struct platform_device *pdev, struct drm_device *drm, struct baikal_vdu_crossbar *crossbar)
+static void baikal_vdu_l1000_atomic_commit_tail(struct drm_atomic_state *state)
+{
+	struct drm_device *dev = state->dev;
+	struct baikal_vdu_crossbar *crossbar = drm_to_baikal_vdu_crossbar(dev);
+	struct baikal_vdu_private *priv = &crossbar->vdu[0];
+	struct drm_connector *connector;
+	struct drm_connector_list_iter conn_iter;
+	bool has_active_connector = false;
+
+	drm_atomic_helper_commit_tail(state);
+
+	drm_connector_list_iter_begin(dev, &conn_iter);
+	drm_for_each_connector_iter(connector, &conn_iter) {
+		if (connector->status == connector_status_connected) {
+			has_active_connector = true;
+			break;
+		}
+	}
+	drm_connector_list_iter_end(&conn_iter);
+
+	if (!has_active_connector) {
+		baikal_vdu_write(priv, TE_EN, 0);
+	} else {
+		baikal_vdu_write(priv, TE_EN, 1);
+	}
+}
+
+static const struct drm_mode_config_helper_funcs
+baikal_vdu_l1000_mode_config_helpers = {
+	.atomic_commit_tail = baikal_vdu_l1000_atomic_commit_tail,
+};
+
+static int baikal_vdu_l1000_probe(struct platform_device *pdev,
+				  struct drm_device *drm,
+				  struct baikal_vdu_crossbar *crossbar)
 {
 	struct device *dev = &pdev->dev;
 	struct baikal_vdu_private *dp0 = &crossbar->vdu[0];
@@ -45,6 +80,7 @@ static int baikal_vdu_l1000_probe(struct platform_device *pdev, struct drm_devic
 	mode_config->funcs = &mode_config_funcs;
 	mode_config->max_width = BAIKAL_VDU_L1000_XRES_MAX;
 	mode_config->max_height = BAIKAL_VDU_L1000_YRES_MAX;
+	mode_config->helper_private = &baikal_vdu_l1000_mode_config_helpers;
 
 	dp0->off = dp0_off;
 	dp0->ready = baikal_vdu_resources_init(pdev, dp0);

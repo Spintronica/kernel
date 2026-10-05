@@ -19,6 +19,7 @@
 	cpus {
 		baikal,demand-qos = <10>;
 		baikal,prefetch-qos = <8>;
+
 		cpu@0 {
 			baikal,enable-cbusy-tuning = <1>;
 		};
@@ -45,6 +46,9 @@
 	num-lanes = <4>;
 };
 
+/delete-node/ &ehsp_pcie0_p0_ep;
+/delete-node/ &ehsp_pcie1_p0_ep;
+
 &ehsp_pcie1_p1 { /* Connected to PCIe-SATA controller */
 	status = "okay";
 	num-lanes = <1>;
@@ -59,7 +63,6 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
-	pinctrl = <&sc_lsp_pin19_gpio32>;
 };
 
 &hsp_dmac {
@@ -125,12 +128,10 @@
 };
 
 &hsp_usb0_phy20_l0 {
-	compatible = "cdns3,usb2-phy";
 	status = "okay";
 };
 
 &hsp_usb0_phy20_l1 {
-	compatible = "cdns3,usb2-phy";
 	status = "okay";
 };
 
@@ -164,7 +165,7 @@
 };
 
 &hsp_usb1_l1 { /* Connected to M.2 Key E */
-	status = "okay";
+	status = "disabled";
 	dr_mode = "host";
 	maximum-speed = "high-speed";
 };
@@ -178,12 +179,10 @@
 };
 
 &hsp_usb1_phy20_l0 {
-	compatible = "cdns3,usb2-phy";
 	status = "okay";
 };
 
 &hsp_usb1_phy20_l1 {
-	compatible = "cdns3,usb2-phy";
 	status = "okay";
 };
 
@@ -197,7 +196,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
-	pinctrl = <&sc_lsp_pin20_gpio32>;
+
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -228,17 +227,6 @@
 
 &sc_dmac {
 	status = "okay";
-};
-
-&sc_emmc2_sdhci {
-	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc2>,
-		  <&sc_emmc_hc2_1_8v>,
-		  <&sc_emmc_hc2_mem_pwrup>,
-		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
-		  <&sc_emmc_pd_hc2_dqs>;
-	bus-width = <4>;
-	wp-inverted;
 };
 
 &sc_emmc_pinctrl {
@@ -282,14 +270,9 @@
 	status = "okay";
 	pinctrl = <&sc_lsp_pin0_i2c1_smbalert>,
 		  <&sc_lsp_pin2_i2c1_scl>,
-		  <&sc_lsp_pin3_i2c1_sda>;
-};
-
-&sc_i2c3 {
-	status = "okay";
-	pinctrl = <&sc_lsp_pin6_i2c3_scl>,
-		  <&sc_lsp_pin7_i2c3_sda>,
-		  <&sc_lsp_pin29_gpio32>; /* Fingerprint */
+		  <&sc_lsp_pin3_i2c1_sda>,
+		  <&sc_lsp_pin25_gpio32>, /* Lightsens INT */
+		  <&sc_lsp_pin29_gpio32>; /* Fingerprint INT */
 
 	light-sensor@23 {
 		compatible = "liteon,ltr553";
@@ -300,6 +283,12 @@
 		compatible = "microchip,usb5744";
 		reg = <0x2d>;
 	};
+};
+
+&sc_i2c3 {
+	status = "okay";
+	pinctrl = <&sc_lsp_pin6_i2c3_scl>,
+		  <&sc_lsp_pin7_i2c3_sda>;
 };
 
 &sc_i2s1 { /* Connected to M.2 Key E */
@@ -323,11 +312,24 @@
 	status = "okay";
 };
 
-&sc_sdio_sdhci { /* Connected to M.2 Key E */
+&sc_sdhci0 { /* Connected to M.2 Key E */
 	status = "okay";
 	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
 	bus-width = <4>;
+	no-mmc;
 	max-frequency = <25000000>;
+};
+
+&sc_sdhci2 {
+	status = "okay";
+	pinctrl = <&sc_emmc_mux_sdhci2>,
+		  <&sc_emmc_sdhci2_1v8>,
+		  <&sc_emmc_sdhci2_mem_pwrup>,
+		  <&sc_emmc_pu_sdhci2_cmd_dat_0_7>,
+		  <&sc_emmc_pd_sdhci2_dqs>;
+	bus-width = <4>;
+	no-mmc;
+	wp-inverted;
 };
 
 &sc_timer0 {

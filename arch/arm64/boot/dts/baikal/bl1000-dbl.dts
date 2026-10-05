@@ -19,6 +19,7 @@
 	cpus {
 		baikal,demand-qos = <10>;
 		baikal,prefetch-qos = <8>;
+
 		cpu@0 {
 			baikal,enable-cbusy-tuning = <1>;
 		};
@@ -205,6 +206,13 @@
 };
 #endif
 
+&ehsp_pcie0_p0_ep {
+	status = "okay";
+	num-lanes = <4>;
+};
+
+/delete-node/ &ehsp_pcie0_p0_ep;
+
 #if USE_EXPBOARD_DBL_PRX1 & (1 << 1)
 /****************************************************/
 /* PCIe1-SS bifurcation for DBL-PRX1 (x1/x1/x1/x1)  */
@@ -251,6 +259,13 @@
 	num-lanes = <4>;
 };
 #endif
+
+&ehsp_pcie1_p0_ep {
+	status = "okay";
+	num-lanes = <4>;
+};
+
+/delete-node/ &ehsp_pcie1_p0_ep;
 
 #if defined(USE_EDP_PANEL)
 &hsp_edp_phy {
@@ -313,6 +328,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -339,38 +355,6 @@
 
 &sc_dmac {
 	status = "okay";
-};
-
-&sc_emmc1_sdhci {
-	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc1>,
-		  <&sc_emmc_hc1_1_8v>,
-		  <&sc_emmc_hc1_mem_pwrup>,
-		  <&sc_emmc_pu_hc1_cmd_dat_0_7>,
-		  <&sc_emmc_pd_hc1_dqs>;
-	bus-width = <8>;
-	no-sd;
-	no-sdio;
-	non-removable;
-	mmc-hs400-1_8v;
-	mmc-hs400-enhanced-strobe;
-	sdhci-caps = <0x0 0x40000>;
-};
-
-&sc_emmc2_sdhci {
-	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc2>,
-		  <&sc_emmc_hc2_1_8v>,
-		  <&sc_emmc_hc2_mem_pwrup>,
-		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
-		  <&sc_emmc_pd_hc2_dqs>;
-	bus-width = <8>;
-	no-sd;
-	no-sdio;
-	non-removable;
-	mmc-hs400-1_8v;
-	mmc-hs400-enhanced-strobe;
-	sdhci-caps = <0x0 0x40000>;
 };
 
 &sc_emmc_pinctrl {
@@ -415,6 +399,38 @@
 
 &sc_lsp_pinctrl2 {
 	status = "okay";
+};
+
+&sc_sdhci1 {
+	status = "okay";
+	pinctrl = <&sc_emmc_mux_sdhci1>,
+		  <&sc_emmc_sdhci1_1v8>,
+		  <&sc_emmc_sdhci1_mem_pwrup>,
+		  <&sc_emmc_pu_sdhci1_cmd_dat_0_7>,
+		  <&sc_emmc_pd_sdhci1_dqs>;
+	bus-width = <8>;
+	no-sd;
+	no-sdio;
+	non-removable;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	sdhci-caps = <0x0 0x40000>;
+};
+
+&sc_sdhci2 {
+	status = "okay";
+	pinctrl = <&sc_emmc_mux_sdhci2>,
+		  <&sc_emmc_sdhci2_1v8>,
+		  <&sc_emmc_sdhci2_mem_pwrup>,
+		  <&sc_emmc_pu_sdhci2_cmd_dat_0_7>,
+		  <&sc_emmc_pd_sdhci2_dqs>;
+	bus-width = <8>;
+	no-sd;
+	no-sdio;
+	non-removable;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	sdhci-caps = <0x0 0x40000>;
 };
 
 &sc_timer0 {
@@ -633,16 +649,38 @@
 	baikal,audio-enable;
 };
 
+&hsp_usb1_phy20_l0 {
+	status = "okay";
+};
+
+&hsp_usb1_phy20_l1 {
+	status = "okay";
+};
+
 &hsp_usb1_l0 {
 	status = "okay";
-	dr_mode = "host";
+	dr_mode = "otg";
 	maximum-speed = "high-speed";
+	usb-role-switch;
+
+	port {
+		usb1_l0_ep: endpoint {
+			remote-endpoint = <&usb1_l0_hs_ep>;
+		};
+	};
 };
 
 &hsp_usb1_l1 {
 	status = "okay";
-	dr_mode = "host";
+	dr_mode = "otg";
 	maximum-speed = "high-speed";
+	usb-role-switch;
+
+	port {
+		usb1_l1_ep: endpoint {
+			remote-endpoint = <&usb1_l1_hs_ep>;
+		};
+	};
 };
 
 &sc_i2c2 {
@@ -664,14 +702,60 @@
 		compatible = "ti,tusb320l";
 		reg = <0x47>;
 		interrupt-parent = <&portc>;
-		interrupts = <14 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl = <&sc_lsp_pin14_gpio32>;
+
+		connector {
+		    compatible = "usb-c-connector";
+		    label = "USB1L0-C";
+		    self-powered;
+		    power-role = "source";
+		    try-power-role = "source";
+		    data-role = "dual";
+		    typec-power-opmode = "default";
+		    usb-role-switch;
+
+		    ports {
+			    #address-cells = <1>;
+			    #size-cells = <0>;
+			    port@0 {
+				    reg = <0>;
+				    usb1_l0_hs_ep: endpoint {
+					    remote-endpoint = <&usb1_l0_ep>;
+				    };
+			    };
+		    };
+		};
 	};
 
 	tusb320@67 {
 		compatible = "ti,tusb320l";
 		reg = <0x67>;
 		interrupt-parent = <&portc>;
-		interrupts = <15 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl = <&sc_lsp_pin15_gpio32>;
+
+		connector {
+		    compatible = "usb-c-connector";
+		    label = "USB1L1-C";
+		    self-powered;
+		    power-role = "source";
+		    try-power-role = "source";
+		    data-role = "dual";
+		    typec-power-opmode = "default";
+		    usb-role-switch;
+
+		    ports {
+			    #address-cells = <1>;
+			    #size-cells = <0>;
+			    port@0 {
+				    reg = <0>;
+				    usb1_l1_hs_ep: endpoint {
+					    remote-endpoint = <&usb1_l1_ep>;
+				    };
+			    };
+		    };
+		};
 	};
 
 	i2c-mux@70 {
@@ -795,10 +879,11 @@
 	};
 };
 
-&sc_sdio_sdhci { /* Connected to LTE/GPRS/GSM and Wi-Fi/Bluetooth controllers */
+&sc_sdhci0 { /* Connected to LTE/GPRS/GSM and Wi-Fi/Bluetooth controllers */
 	status = "okay";
 	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
 	bus-width = <4>;
+	no-mmc;
 	max-frequency = <25000000>;
 };
 
@@ -943,6 +1028,10 @@
 /****************************************************/
 /* DTB2s is connected to DBL-UMC v1.2               */
 /****************************************************/
+&hsp_gpio32 {
+	status = "okay";
+};
+
 &hsp_hda {
 	status = "okay";
 	pinctrl = <&hsp_lsp_pin14_hda_rst>,
@@ -991,16 +1080,38 @@
 	status = "okay";
 };
 
+&hsp_usb0_phy20_l0 {
+	status = "okay";
+};
+
+&hsp_usb0_phy20_l1 {
+	status = "okay";
+};
+
 &hsp_usb0_l0 {
 	status = "okay";
-	dr_mode = "host";
+	dr_mode = "otg";
 	maximum-speed = "high-speed";
+	usb-role-switch;
+
+	port {
+		usb0_l0_ep: endpoint {
+			remote-endpoint = <&usb0_l0_hs_ep>;
+		};
+	};
 };
 
 &hsp_usb0_l1 {
 	status = "okay";
-	dr_mode = "host";
+	dr_mode = "otg";
 	maximum-speed = "high-speed";
+	usb-role-switch;
+
+	port {
+		usb0_l1_ep: endpoint {
+			remote-endpoint = <&usb0_l1_hs_ep>;
+		};
+	};
 };
 
 &sc_i2c3 {
@@ -1034,21 +1145,68 @@
 		compatible = "ti,tusb320l";
 		reg = <0x47>;
 		interrupt-parent = <&portf>;
-		interrupts = <4 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl = <&hsp_lsp_pin4_gpio32>;
+
+		connector {
+		    compatible = "usb-c-connector";
+		    label = "USB0L0-C";
+		    self-powered;
+		    power-role = "source";
+		    try-power-role = "source";
+		    data-role = "dual";
+		    typec-power-opmode = "default";
+		    usb-role-switch;
+
+		    ports {
+			    #address-cells = <1>;
+			    #size-cells = <0>;
+			    port@0 {
+				    reg = <0>;
+				    usb0_l0_hs_ep: endpoint {
+					    remote-endpoint = <&usb0_l0_ep>;
+				    };
+			    };
+		    };
+		};
 	};
 
 	tusb320@67 {
 		compatible = "ti,tusb320l";
 		reg = <0x67>;
 		interrupt-parent = <&portf>;
-		interrupts = <5 IRQ_TYPE_EDGE_RISING>;
+		interrupts = <5 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl = <&hsp_lsp_pin5_gpio32>;
+
+		connector {
+		    compatible = "usb-c-connector";
+		    label = "USB0L1-C";
+		    self-powered;
+		    power-role = "source";
+		    try-power-role = "source";
+		    data-role = "dual";
+		    typec-power-opmode = "default";
+		    usb-role-switch;
+
+		    ports {
+			    #address-cells = <1>;
+			    #size-cells = <0>;
+			    port@0 {
+				    reg = <0>;
+				    usb0_l1_hs_ep: endpoint {
+					    remote-endpoint = <&usb0_l1_ep>;
+				    };
+			    };
+		    };
+		};
 	};
 };
 
-&sc_sdio_sdhci {
+&sc_sdhci0 {
 	status = "okay";
 	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
 	bus-width = <4>;
+	no-mmc;
 	max-frequency = <25000000>;
 };
 

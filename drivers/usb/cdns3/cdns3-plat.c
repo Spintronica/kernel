@@ -44,6 +44,14 @@ static void set_phy_power_off(struct cdns *cdns)
 	phy_power_off(cdns->usb2_phy);
 }
 
+static int cdns3_plat_gadget_init(struct cdns *cdns)
+{
+       if (cdns->version < CDNSP_CONTROLLER_V2)
+               return cdns3_gadget_init(cdns);
+       else
+               return cdnsp_gadget_init(cdns);
+}
+
 /**
  * cdns3_plat_probe - probe for cdns3 core device
  * @pdev: Pointer to cdns3 core platform device
@@ -143,7 +151,7 @@ static int cdns3_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_phy_power_on;
 
-	cdns->gadget_init = cdns3_gadget_init;
+	cdns->gadget_init = cdns3_plat_gadget_init;
 
 	ret = cdns_init(cdns);
 	if (ret)

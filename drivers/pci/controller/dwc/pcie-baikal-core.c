@@ -2,7 +2,7 @@
 /*
  * PCIe controller driver for Baikal Electronics SoCs
  *
- * Copyright (C) 2019-2025 Baikal Electronics, JSC
+ * Copyright (C) 2019-2026 Baikal Electronics, JSC
  * Authors: Pavel Parkhomenko <pavel.parkhomenko@baikalelectronics.ru>
  *          Aleksandr Efimov <alexander.efimov@baikalelectronics.ru>
  */
@@ -18,6 +18,7 @@
 #include <linux/pci-ecam.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/reset.h>
 
 #include <acpi/acrestyp.h>
 
@@ -29,13 +30,17 @@
 #define BAIKAL_PCIE_LTSSM_MASK		0x3f
 #define BAIKAL_PCIE_LTSSM_STATE_L0	0x11
 
+struct baikal_pcie;
+
 struct baikal_pcie_of_data {
 	enum dw_pcie_device_mode	mode;
 	struct dw_pcie_ops		dw_pcie_ops;
 	int (*get_resources)(struct platform_device *pdev,
-			     struct dw_pcie *pci,
 			     const struct baikal_pcie_of_data *data);
 	int (*add_pcie_port)(struct platform_device *pdev);
+	int (*power_off)(struct baikal_pcie *bp);
+	int (*exit_from_l2)(struct baikal_pcie *bp);
+	bool pm_support;
 };
 
 #if defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS)
@@ -112,8 +117,77 @@ static bool baikal_pcie_link_wait_training_done(struct dw_pcie *pci)
 	return true;
 }
 
+enum bl1000_pcie_nic_reset {
+	BL1000_PCIE_CTRL_PHY_RESET,
+	BL1000_PCIE_FUNC_GPV_RESET,
+	BL1000_PCIE_CFG_GPV_RESET,
+	BL1000_PCIE_HS_CFG_RESET,
+	BL1000_PCIE_FUNC_RESET,
+	BL1000_PCIE_NUM_NIC_RESETS
+};
+
+struct bl1000_pcie {
+	void __iomem		*apb_base;
+#if defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS)
+	int			edma_irq[BAIKAL_EDMA_WR_CH + BAIKAL_EDMA_RD_CH];
+#endif
+	void __iomem		*slv_base;
+	u8			slv_remap;
+	struct reset_control *pwrup;
+	struct reset_control_bulk_data nic_resets[BL1000_PCIE_NUM_NIC_RESETS];
+};
+
+struct bm1000_pcie {
+	unsigned int		num;
+	struct regmap		*gpr;
+	union {
+		struct gpio_desc *reset_gpio;
+		struct {
+			u8 num : 5;
+			u8 polarity : 1;
+			u8 is_set : 1;
+		} gpio[2];
+	};
+	char			reset_name[32];
+	bool			retrained;
+};
+
+struct bs1000_pcie {
+	void __iomem		*apb_base;
+	u64			cpu_addr_mask;
+#if defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS)
+	int			edma_irq[BAIKAL_EDMA_WR_CH + BAIKAL_EDMA_RD_CH];
+#endif
+};
+
+struct baikal_pcie {
+	union {
+		struct bl1000_pcie	bl1000_pcie;
+		struct bm1000_pcie	bm1000_pcie;
+		struct bs1000_pcie	bs1000_pcie;
+	};
+	struct dw_pcie *pci;
+	const struct baikal_pcie_of_data *data;
+};
+
 #define BL1000_PCIE_APB_PE_GEN_CTRL3			0x58
 #define BL1000_PCIE_APB_PE_GEN_CTRL3_LTSSM_EN		BIT(0)
+#define BL1000_PCIE_APB_PE_GEN_CTRL3_HOT_RESET		BIT(2)
+
+#define BL1000_PCIE_APB_PE_GEN_CTRL4			0x5c
+#define BL1000_PCIE_APB_PE_GEN_CTRL4_LTSSM_EN_CLR_MASK	BIT(30)
+
+#define BL1000_PCIE_APB_PE_PM_CTRL			0x60
+#define BL1000_PCIE_APB_PE_PM_CTRL_WAKEUP_INT_EN	BIT(31)
+
+#define BL1000_PCIE_APB_PE_PM_STS			0x64
+#define BL1000_PCIE_APB_PE_PM_STS_WAKEUP_INT		BIT(31)
+
+#define BL1000_PCIE_APB_PE_TX_MSG_REQ			0x80
+#define BL1000_PCIE_APB_PE_TX_MSG_REQ_PME_TURN_OFF	BIT(19)
+
+#define BL1000_PCIE_APB_PE_RX_MSG_STS			0xa0
+#define BL1000_PCIE_APB_PE_RX_MSG_STS_PME_TO_ACK	BIT(11)
 
 #define BL1000_PCIE_APB_PE_LINK_DBG2			0xb4
 #define BL1000_PCIE_APB_PE_LINK_DBG2_SMLH_LINK_UP	BIT(6)
@@ -122,24 +196,74 @@ static bool baikal_pcie_link_wait_training_done(struct dw_pcie *pci)
 #define BL1000_PCIE_APB_PE_ERR_STS			0xe0
 #define BL1000_PCIE_APB_PE_INT_STS			0xe8
 
-struct bl1000_pcie {
-	struct dw_pcie		*pci;
-	void __iomem		*apb_base;
-#if defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS)
-	int			edma_irq[BAIKAL_EDMA_WR_CH + BAIKAL_EDMA_RD_CH];
-#endif
+#define BL1000_PCIE_SLV_NIC_REMAP_MASK			0xff
+
+static const char * const bl1000_pcie_nic_resets[BL1000_PCIE_NUM_NIC_RESETS] = {
+	[BL1000_PCIE_CTRL_PHY_RESET] = "ctrl-phy",
+	[BL1000_PCIE_FUNC_GPV_RESET] = "func-gpv",
+	[BL1000_PCIE_CFG_GPV_RESET] = "cfg-gpv",
+	[BL1000_PCIE_HS_CFG_RESET] = "hs-cfg",
+	[BL1000_PCIE_FUNC_RESET] = "func",
+};
+
+static void bl1000_pcie_ep_init(struct dw_pcie_ep *ep)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+	enum pci_barno bar;
+
+	for (bar = BAR_0; bar <= BAR_5; bar++)
+		dw_pcie_ep_reset_bar(pci, bar);
+}
+
+static int bl1000_pcie_ep_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
+				    unsigned int type,
+				    u16 interrupt_num)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+
+	switch (type) {
+	case PCI_IRQ_INTX:
+		return dw_pcie_ep_raise_intx_irq(ep, func_no);
+	case PCI_IRQ_MSI:
+		return dw_pcie_ep_raise_msi_irq(ep, func_no, interrupt_num);
+	case PCI_IRQ_MSIX:
+		return dw_pcie_ep_raise_msix_irq(ep, func_no, interrupt_num);
+	default:
+		dev_err(pci->dev, "UNKNOWN IRQ type\n");
+		return -EINVAL;
+	}
+}
+
+static const struct pci_epc_features bl1000_pcie_epc_features = {
+	.linkup_notifier = false,
+	.msi_capable = true,
+	.msix_capable = true,
+	.bar[BAR_4] = { .type = BAR_RESERVED, },
+	.bar[BAR_5] = { .type = BAR_RESERVED, },
+	.align = SZ_64K,
+};
+
+static const struct pci_epc_features*
+bl1000_pcie_ep_get_features(struct dw_pcie_ep *ep)
+{
+	return &bl1000_pcie_epc_features;
+}
+
+static const struct dw_pcie_ep_ops bl1000_pcie_ep_ops = {
+	.init		= bl1000_pcie_ep_init,
+	.raise_irq	= bl1000_pcie_ep_raise_irq,
+	.get_features	= bl1000_pcie_ep_get_features,
 };
 
 static int bl1000_get_resources(struct platform_device *pdev,
-				struct dw_pcie *pci,
 				const struct baikal_pcie_of_data *data)
 {
-	struct bl1000_pcie *bl = platform_get_drvdata(pdev);
+	struct baikal_pcie *bp = platform_get_drvdata(pdev);
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
+	struct dw_pcie *pci = bp->pci;
 	struct device *dev = pci->dev;
 	struct resource *res;
-	int ret;
-
-	bl->pci = pci;
+	int i, ret;
 
 	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
 	if (ret)
@@ -159,6 +283,33 @@ static int bl1000_get_resources(struct platform_device *pdev,
 	if (IS_ERR(bl->apb_base))
 		return PTR_ERR(bl->apb_base);
 
+	bl->slv_base = devm_platform_ioremap_resource_byname(pdev, "slv");
+	if (IS_ERR(bl->slv_base))
+		return PTR_ERR(bl->slv_base);
+	bl->slv_remap = readl(bl->slv_base) & BL1000_PCIE_SLV_NIC_REMAP_MASK;
+
+	if (data->mode == DW_PCIE_EP_TYPE) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "addr_space");
+		if (!res)
+			return -EINVAL;
+
+		pci->ep.phys_base = res->start;
+		pci->ep.addr_size = resource_size(res);
+		pci->ep.ops = &bl1000_pcie_ep_ops;
+		pci->dbi_base2 = pci->dbi_base + 0x100000;
+	}
+
+	bl->pwrup = devm_reset_control_get_shared_deasserted(pci->dev, "pwrup");
+	if (IS_ERR(bl->pwrup))
+		return PTR_ERR(bl->pwrup);
+
+	for (i = 0; i < BL1000_PCIE_NUM_NIC_RESETS; i++)
+		bl->nic_resets[i].id = bl1000_pcie_nic_resets[i];
+	ret = devm_reset_control_bulk_get_shared_deasserted(pci->dev,
+		BL1000_PCIE_NUM_NIC_RESETS, bl->nic_resets);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
@@ -169,7 +320,8 @@ static u64 bl1000_pcie_cpu_addr_fixup(struct dw_pcie *pci, u64 cpu_addr)
 
 static int bl1000_pcie_link_up(struct dw_pcie *pci)
 {
-	struct bl1000_pcie *bl = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
 	u32 reg;
 
 	reg = readl(bl->apb_base + BL1000_PCIE_APB_PE_LINK_DBG2);
@@ -180,12 +332,94 @@ static int bl1000_pcie_link_up(struct dw_pcie *pci)
 
 static int bl1000_pcie_start_link(struct dw_pcie *pci)
 {
-	struct bl1000_pcie *bl = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
 	u32 reg;
 
 	reg = readl(bl->apb_base + BL1000_PCIE_APB_PE_GEN_CTRL3);
 	reg |= BL1000_PCIE_APB_PE_GEN_CTRL3_LTSSM_EN;
 	writel(reg, bl->apb_base + BL1000_PCIE_APB_PE_GEN_CTRL3);
+
+	return 0;
+}
+
+static void bl1000_pcie_stop_link(struct dw_pcie *pci)
+{
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
+	u32 reg;
+
+	reg = readl(bl->apb_base + BL1000_PCIE_APB_PE_GEN_CTRL3);
+	reg &= ~BL1000_PCIE_APB_PE_GEN_CTRL3_LTSSM_EN;
+	writel(reg, bl->apb_base + BL1000_PCIE_APB_PE_GEN_CTRL3);
+}
+
+static void bl1000_pcie_send_turnoff_msg(struct dw_pcie_rp *pp)
+{
+	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
+	u32 reg;
+	int ret;
+
+	reg = readl(bl->apb_base + BL1000_PCIE_APB_PE_TX_MSG_REQ);
+	reg |= BL1000_PCIE_APB_PE_TX_MSG_REQ_PME_TURN_OFF;
+	writel(reg, bl->apb_base + BL1000_PCIE_APB_PE_TX_MSG_REQ);
+
+	ret = readl_poll_timeout(bl->apb_base + BL1000_PCIE_APB_PE_RX_MSG_STS,
+				 reg, (reg & BL1000_PCIE_APB_PE_RX_MSG_STS_PME_TO_ACK),
+				 PCIE_PME_TO_L2_TIMEOUT_US/10, PCIE_PME_TO_L2_TIMEOUT_US);
+	if (ret) {
+		dev_err(pci->dev, "PME_Turn_off timeout\n");
+		return;
+	}
+
+	reg = readl(bl->apb_base + BL1000_PCIE_APB_PE_RX_MSG_STS);
+	reg |= BL1000_PCIE_APB_PE_RX_MSG_STS_PME_TO_ACK;
+	writel(reg, bl->apb_base + BL1000_PCIE_APB_PE_RX_MSG_STS);
+}
+
+static int bl1000_power_off(struct baikal_pcie *bp)
+{
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
+	int ret = 0;
+
+	/* Assert NIC resets */
+	ret = reset_control_bulk_assert(BL1000_PCIE_NUM_NIC_RESETS, bl->nic_resets);
+	if (ret) {
+		dev_err(bp->pci->dev, "Failed to assert NIC resets (%d)\n", ret);
+		return ret;
+	}
+	/* Assert PWRUP reset */
+	ret = reset_control_assert(bl->pwrup);
+	if (ret) {
+		dev_err(bp->pci->dev, "Failed to assert PWRUP reset (%d)\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int bl1000_exit_from_l2(struct baikal_pcie *bp)
+{
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
+	int ret = 0;
+
+	/* Deassert PWRUP reset */
+	ret = reset_control_deassert(bl->pwrup);
+	if (ret) {
+		dev_err(bp->pci->dev, "Failed to deassert PWRUP reset (%d)\n", ret);
+		return ret;
+	}
+	/* Deassert NIC resets */
+	ret = reset_control_bulk_deassert(BL1000_PCIE_NUM_NIC_RESETS, bl->nic_resets);
+	if (ret) {
+		dev_err(bp->pci->dev, "Failed to deassert NIC resets (%d)\n", ret);
+		return ret;
+	}
+	/* Restore Slave NIC remapping */
+	writel(bl->slv_remap, bl->slv_base);
+
 	return 0;
 }
 
@@ -224,8 +458,9 @@ static int bl1000_pcie_host_init(struct dw_pcie_rp *pp)
 
 static irqreturn_t bl1000_pcie_intr_irq_handler(int irq, void *arg)
 {
-	struct bl1000_pcie *bl = arg;
-	struct dw_pcie *pci = bl->pci;
+	struct baikal_pcie *bp = arg;
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
+	struct dw_pcie *pci = bp->pci;
 	struct device *dev = pci->dev;
 	u16 exp_cap_off;
 	u16 ext_cap_err_off;
@@ -289,8 +524,8 @@ static irqreturn_t bl1000_pcie_intr_irq_handler(int irq, void *arg)
 static u64 bl1000_pcie_edma_address(struct device *dev, phys_addr_t cpu_addr)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct bl1000_pcie *bl = platform_get_drvdata(pdev);
-	struct pci_bus *bus = bl->pci->pp.bridge->bus;
+	struct baikal_pcie *bp = platform_get_drvdata(pdev);
+	struct pci_bus *bus = bp->pci->pp.bridge->bus;
 	struct pci_bus_region region;
 	struct resource res = {
 		.flags = IORESOURCE_MEM,
@@ -309,13 +544,14 @@ static const struct dw_edma_plat_ops bl1000_pcie_edma_ops = {
 
 static const struct dw_pcie_host_ops bl1000_pcie_host_ops = {
 	.init = bl1000_pcie_host_init,
+	.pme_turn_off = bl1000_pcie_send_turnoff_msg,
 };
 
 static int bl1000_add_pcie_port(struct platform_device *pdev)
 {
-	struct bl1000_pcie *bl = platform_get_drvdata(pdev);
+	struct baikal_pcie *bp = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
-	struct dw_pcie *pci = bl->pci;
+	struct dw_pcie *pci = bp->pci;
 	struct dw_pcie_rp *pp = &pci->pp;
 	int ret;
 
@@ -325,7 +561,7 @@ static int bl1000_add_pcie_port(struct platform_device *pdev)
 		pp->irq = 0;
 	} else {
 		ret = devm_request_irq(dev, pp->irq, bl1000_pcie_intr_irq_handler,
-					       IRQF_SHARED, "bl1000-pcie-intr", bl);
+					       IRQF_SHARED, "bl1000-pcie-intr", bp);
 		if (ret) {
 			dev_err(dev, "failed to request IRQ %d\n", pp->irq);
 			return ret;
@@ -518,11 +754,12 @@ skip_lanes:
 
 static int bl1000_pcie_get_res_acpi(struct acpi_device *adev,
 				    struct acpi_device **res_dev,
-				    struct bl1000_pcie *bl,
+				    struct baikal_pcie *bp,
 				    struct baikal_pcie_acpi_data *mem_data)
 {
 	struct device *dev = &adev->dev;
-	struct dw_pcie_rp *pp = &bl->pci->pp;
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
+	struct dw_pcie_rp *pp = &bp->pci->pp;
 	struct resource_entry *entry;
 	struct list_head list, *pos;
 	struct fwnode_handle *fwnode;
@@ -565,23 +802,23 @@ static int bl1000_pcie_get_res_acpi(struct acpi_device *adev,
 	/* DBI */
 	pos = pos->next;
 	entry = list_entry(pos, struct resource_entry, node);
-	bl->pci->dbi_base = devm_ioremap_resource(dev, entry->res);
-	if (IS_ERR(bl->pci->dbi_base)) {
+	bp->pci->dbi_base = devm_ioremap_resource(dev, entry->res);
+	if (IS_ERR(bp->pci->dbi_base)) {
 		dev_err(dev, "error with dbi ioremap\n");
-		ret = PTR_ERR(bl->pci->dbi_base);
+		ret = PTR_ERR(bp->pci->dbi_base);
 		return ret;
 	}
 
 	/* ATU */
 	pos = pos->next;
 	entry = list_entry(pos, struct resource_entry, node);
-	bl->pci->atu_base = devm_ioremap_resource(dev, entry->res);
-	if (IS_ERR(bl->pci->atu_base)) {
+	bp->pci->atu_base = devm_ioremap_resource(dev, entry->res);
+	if (IS_ERR(bp->pci->atu_base)) {
 		dev_err(dev, "error with atu ioremap\n");
-		ret = PTR_ERR(bl->pci->atu_base);
+		ret = PTR_ERR(bp->pci->atu_base);
 		return ret;
 	}
-	bl->pci->atu_size = resource_size(entry->res);
+	bp->pci->atu_size = resource_size(entry->res);
 
 	/* APB */
 	pos = pos->next;
@@ -647,9 +884,10 @@ static int bl1000_pcie_get_res_acpi(struct acpi_device *adev,
 
 static int bl1000_pcie_get_irq_acpi(struct device *dev,
 				    struct acpi_device *res_dev,
-				    struct bl1000_pcie *bl)
+				    struct baikal_pcie *bp)
 {
-	struct dw_pcie_rp *pp = &bl->pci->pp;
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
+	struct dw_pcie_rp *pp = &bp->pci->pp;
 	struct resource res;
 	int index, ret = 0;
 
@@ -671,7 +909,7 @@ static int bl1000_pcie_get_irq_acpi(struct device *dev,
 		}
 		bl->edma_irq[index] = res.start;
 	}
-	bl->pci->edma.nr_irqs = index;
+	bp->pci->edma.nr_irqs = index;
 
 	/* RC interrupts */
 	if (ret == 0)
@@ -695,7 +933,7 @@ static int bl1000_pcie_get_irq_acpi(struct device *dev,
 	pp->irq = res.start;
 
 	ret = devm_request_irq(dev, pp->irq, bl1000_pcie_intr_irq_handler,
-			       IRQF_SHARED, "bl1000-pcie-intr", bl);
+			       IRQF_SHARED, "bl1000-pcie-intr", bp);
 	if (ret) {
 		dev_err(dev, "failed to request IRQ %d\n", pp->irq);
 		return ret;
@@ -704,19 +942,19 @@ static int bl1000_pcie_get_irq_acpi(struct device *dev,
 	return 0;
 }
 
-static int bl1000_get_acpi_data(struct device *dev, struct bl1000_pcie *bl,
+static int bl1000_get_acpi_data(struct device *dev, struct baikal_pcie *bp,
 				struct baikal_pcie_acpi_data *mem_data)
 {
 	struct acpi_device *adev = to_acpi_device(dev), *res_dev;
 	int ret;
 
-	ret = bl1000_pcie_get_res_acpi(adev, &res_dev, bl, mem_data);
+	ret = bl1000_pcie_get_res_acpi(adev, &res_dev, bp, mem_data);
 	if (ret) {
 		dev_err(dev, "failed to get resource info\n");
 		return ret;
 	}
 
-	ret = bl1000_pcie_get_irq_acpi(dev, res_dev, bl);
+	ret = bl1000_pcie_get_irq_acpi(dev, res_dev, bp);
 	if (ret) {
 		dev_err(dev, "failed to get irq info\n");
 		return ret;
@@ -727,9 +965,10 @@ static int bl1000_get_acpi_data(struct device *dev, struct bl1000_pcie *bl,
 
 static int bl1000_pcie_acpi_edma_irq_vector(struct device *dev, unsigned int nr)
 {
-	struct bl1000_pcie *bl = dev_get_drvdata(dev);
+	struct baikal_pcie *bp = dev_get_drvdata(dev);
+	struct bl1000_pcie *bl = &bp->bl1000_pcie;
 
-	if (nr >= bl->pci->edma.nr_irqs)
+	if (nr >= bp->pci->edma.nr_irqs)
 		return -EINVAL;
 
 	return bl->edma_irq[nr];
@@ -737,8 +976,8 @@ static int bl1000_pcie_acpi_edma_irq_vector(struct device *dev, unsigned int nr)
 
 static u64 bl1000_pcie_acpi_edma_address(struct device *dev, phys_addr_t cpu_addr)
 {
-	struct bl1000_pcie *bl = dev_get_drvdata(dev);
-	struct pci_bus *bus = bl->pci->pp.bridge->bus;
+	struct baikal_pcie *bp = dev_get_drvdata(dev);
+	struct pci_bus *bus = bp->pci->pp.bridge->bus;
 	struct pci_bus_region region;
 	struct resource res = {
 		.flags = IORESOURCE_MEM,
@@ -758,7 +997,7 @@ static const struct dw_edma_plat_ops bl1000_pcie_acpi_edma_ops = {
 static int bl1000_pcie_init(struct pci_config_window *cfg)
 {
 	struct device *dev = cfg->parent;
-	struct bl1000_pcie *bl;
+	struct baikal_pcie *bp;
 	struct dw_pcie *pci;
 	struct dw_pcie_rp *pp;
 	struct baikal_pcie_acpi_data mem_data = {};
@@ -771,15 +1010,15 @@ static int bl1000_pcie_init(struct pci_config_window *cfg)
 	pci->dev = dev;
 	pci->ops = &bl1000_pcie_rc_of_data.dw_pcie_ops;
 
-	bl = devm_kzalloc(dev, sizeof(*bl), GFP_KERNEL);
-	if (!bl)
+	bp = devm_kzalloc(dev, sizeof(*bp), GFP_KERNEL);
+	if (!bp)
 		return -ENOMEM;
 
-	cfg->priv = bl;
-	bl->pci = pci;
-	dev_set_drvdata(dev, bl);
+	cfg->priv = bp;
+	bp->pci = pci;
+	dev_set_drvdata(dev, bp);
 
-	ret = bl1000_get_acpi_data(dev, bl, &mem_data);
+	ret = bl1000_get_acpi_data(dev, bp, &mem_data);
 	if (ret) {
 		dev_err(dev, "failed to get data from ACPI\n");
 		return ret;
@@ -832,15 +1071,15 @@ static void __iomem *bl1000_pcie_map_bus(struct pci_bus *bus,
 					 unsigned int devfn, int where)
 {
 	struct pci_config_window *cfg = bus->sysdata;
-	struct bl1000_pcie *bl = cfg->priv;
+	struct baikal_pcie *bp = cfg->priv;
 	unsigned int devfn_shift = cfg->ops->bus_shift - 8;
 	unsigned int busn = bus->number;
 	void __iomem *base;
 
-	if (!bl->pci->pp.bridge)
-		bl->pci->pp.bridge = to_pci_host_bridge(bus->bridge);
+	if (!bp->pci->pp.bridge)
+		bp->pci->pp.bridge = to_pci_host_bridge(bus->bridge);
 
-	if (bus->number != cfg->busr.start && !bl1000_pcie_link_up(bl->pci))
+	if (bus->number != cfg->busr.start && !bl1000_pcie_link_up(bp->pci))
 		return NULL;
 
 	if (bus->number == cfg->busr.start) {
@@ -851,7 +1090,7 @@ static void __iomem *bl1000_pcie_map_bus(struct pci_bus *bus,
 		if (PCI_SLOT(devfn) > 0)
 			return NULL;
 		else
-			return bl->pci->dbi_base + where;
+			return bp->pci->dbi_base + where;
 	}
 
 	if (busn < cfg->busr.start || busn > cfg->busr.end)
@@ -904,25 +1143,10 @@ const struct pci_ecam_ops baikal_l_pcie_ecam_ops = {
 #define BM1000_PCIE1_DBI_BASE			0x02210000
 #define BM1000_PCIE2_DBI_BASE			0x02220000
 
-struct bm1000_pcie {
-	struct dw_pcie		*pci;
-	unsigned int		num;
-	struct regmap		*gpr;
-	union {
-		struct gpio_desc *reset_gpio;
-		struct {
-			u8 num : 5;
-			u8 polarity : 1;
-			u8 is_set : 1;
-		} gpio[2];
-	};
-	char			reset_name[32];
-	bool			retrained;
-};
-
 void bm1000_pcie_phy_enable(struct dw_pcie *pci)
 {
-	struct bm1000_pcie *bm = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
 	u32 reg;
 
 	regmap_read(bm->gpr, BM1000_PCIE_GPR_GENCTL(bm->num), &reg);
@@ -932,7 +1156,8 @@ void bm1000_pcie_phy_enable(struct dw_pcie *pci)
 
 void bm1000_pcie_phy_disable(struct dw_pcie *pci)
 {
-	struct bm1000_pcie *bm = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
 	u32 reg;
 
 	regmap_read(bm->gpr, BM1000_PCIE_GPR_GENCTL(bm->num), &reg);
@@ -941,14 +1166,14 @@ void bm1000_pcie_phy_disable(struct dw_pcie *pci)
 }
 
 static int bm1000_get_resources(struct platform_device *pdev,
-				struct dw_pcie *pci,
 				const struct baikal_pcie_of_data *data)
 {
-	struct bm1000_pcie *bm = platform_get_drvdata(pdev);
+	struct baikal_pcie *bp = platform_get_drvdata(pdev);
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
+	struct dw_pcie *pci = bp->pci;
 	struct device *dev = pci->dev;
 	struct resource *res;
 
-	bm->pci = pci;
 	bm->gpr = syscon_regmap_lookup_by_compatible("baikal,bm1000-pcie-gpr");
 	if (IS_ERR(bm->gpr)) {
 		dev_err(dev, "failed to find PCIe GPR registers\n");
@@ -985,7 +1210,8 @@ static int bm1000_get_resources(struct platform_device *pdev,
 
 static int bm1000_pcie_link_up(struct dw_pcie *pci)
 {
-	struct bm1000_pcie *bm = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
 	u32 reg;
 
 	regmap_read(bm->gpr, BM1000_PCIE_GPR_GENCTL(bm->num), &reg);
@@ -998,7 +1224,8 @@ static int bm1000_pcie_link_up(struct dw_pcie *pci)
 
 static int bm1000_pcie_start_link(struct dw_pcie *pci)
 {
-	struct bm1000_pcie *bm = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
 	u32 reg;
 
 	regmap_read(bm->gpr, BM1000_PCIE_GPR_GENCTL(bm->num), &reg);
@@ -1007,11 +1234,12 @@ static int bm1000_pcie_start_link(struct dw_pcie *pci)
 	return 0;
 }
 
-static void bm1000_pcie_link_speed_fixup(struct bm1000_pcie *bm,
+static void bm1000_pcie_link_speed_fixup(struct baikal_pcie *bp,
 					 struct pci_bus *bus)
 {
 	struct pci_dev *dev;
-	struct dw_pcie *pci = bm->pci;
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
+	struct dw_pcie *pci = bp->pci;
 	unsigned int dev_lnkcap_speed;
 	unsigned int dev_lnkcap_width;
 	unsigned int rc_lnkcap_speed;
@@ -1026,7 +1254,7 @@ static void bm1000_pcie_link_speed_fixup(struct bm1000_pcie *bm,
 
 	list_for_each_entry(dev, &bus->devices, bus_list)
 		if (dev->subordinate)
-			bm1000_pcie_link_speed_fixup(bm, dev->subordinate);
+			bm1000_pcie_link_speed_fixup(bp, dev->subordinate);
 
 	/* Skip root bridge and devices not directly attached to the RC */
 	if (pci_is_root_bus(bus) || !pci_is_root_bus(bus->parent))
@@ -1201,7 +1429,8 @@ static void bm1000_pcie_set_gpio(u8 num, bool enable)
 static int bm1000_pcie_host_init(struct dw_pcie_rp *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
-	struct bm1000_pcie *bm = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
 	struct device *dev = pci->dev;
 	int err;
 	int linkup;
@@ -1346,8 +1575,8 @@ static int bm1000_pcie_host_init(struct dw_pcie_rp *pp)
 
 static irqreturn_t bm1000_pcie_aer_irq_handler(int irq, void *arg)
 {
-	struct bm1000_pcie *bm = arg;
-	struct dw_pcie *pci = bm->pci;
+	struct baikal_pcie *bp = arg;
+	struct dw_pcie *pci = bp->pci;
 	struct device *dev = pci->dev;
 	u16 exp_cap_off;
 	u16 ext_cap_err_off;
@@ -1390,9 +1619,9 @@ static const struct dw_pcie_host_ops bm1000_pcie_host_ops = {
 
 static int bm1000_add_pcie_port(struct platform_device *pdev)
 {
-	struct bm1000_pcie *bm = platform_get_drvdata(pdev);
+	struct baikal_pcie *bp = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
-	struct dw_pcie *pci = bm->pci;
+	struct dw_pcie *pci = bp->pci;
 	struct dw_pcie_rp *pp = &pci->pp;
 	int ret;
 
@@ -1403,7 +1632,7 @@ static int bm1000_add_pcie_port(struct platform_device *pdev)
 	}
 
 	ret = devm_request_irq(dev, pp->irq, bm1000_pcie_aer_irq_handler,
-			       IRQF_SHARED, "bm1000-pcie-aer", bm);
+			       IRQF_SHARED, "bm1000-pcie-aer", bp);
 	if (ret) {
 		dev_err(dev, "failed to request IRQ %d\n", pp->irq);
 		return ret;
@@ -1417,7 +1646,7 @@ static int bm1000_add_pcie_port(struct platform_device *pdev)
 		return ret;
 	}
 
-	bm1000_pcie_link_speed_fixup(bm, pp->bridge->bus);
+	bm1000_pcie_link_speed_fixup(bp, pp->bridge->bus);
 	return 0;
 }
 
@@ -1613,11 +1842,12 @@ static int bm1000_pcie_acpi_dev_filter_gpio(struct acpi_resource *ares, void *da
 
 static int bm1000_pcie_get_res_acpi(struct acpi_device *adev,
 				    struct acpi_device **res_dev,
-				    struct bm1000_pcie *bm,
+				    struct baikal_pcie *bp,
 				    struct baikal_pcie_acpi_data *mem_data)
 {
 	struct device *dev = &adev->dev;
-	struct dw_pcie_rp *pp = &bm->pci->pp;
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
+	struct dw_pcie_rp *pp = &bp->pci->pp;
 	struct resource_entry *entry;
 	struct list_head list, *pos;
 	struct fwnode_handle *fwnode;
@@ -1671,10 +1901,10 @@ static int bm1000_pcie_get_res_acpi(struct acpi_device *adev,
 		dev_err(dev, "incorrect \"dbi\" base\n");
 		return -EINVAL;
 	}
-	bm->pci->dbi_base = devm_ioremap_resource(dev, entry->res);
-	if (IS_ERR(bm->pci->dbi_base)) {
+	bp->pci->dbi_base = devm_ioremap_resource(dev, entry->res);
+	if (IS_ERR(bp->pci->dbi_base)) {
 		dev_err(dev, "error with dbi ioremap\n");
-		ret = PTR_ERR(bm->pci->dbi_base);
+		ret = PTR_ERR(bp->pci->dbi_base);
 		return ret;
 	}
 
@@ -1766,9 +1996,9 @@ static int bm1000_pcie_get_res_acpi(struct acpi_device *adev,
 
 static int bm1000_pcie_get_irq_acpi(struct device *dev,
 				    struct acpi_device *res_dev,
-				    struct bm1000_pcie *bm)
+				    struct baikal_pcie *bp)
 {
-	struct dw_pcie_rp *pp = &bm->pci->pp;
+	struct dw_pcie_rp *pp = &bp->pci->pp;
 	struct resource res;
 	int ret;
 
@@ -1793,7 +2023,7 @@ static int bm1000_pcie_get_irq_acpi(struct device *dev,
 	pp->irq = res.start;
 
 	ret = devm_request_irq(dev, pp->irq, bm1000_pcie_aer_irq_handler,
-			       IRQF_SHARED, "bm1000-pcie-aer", bm);
+			       IRQF_SHARED, "bm1000-pcie-aer", bp);
 	if (ret) {
 		dev_err(dev, "failed to request irq %d\n", pp->irq);
 		return ret;
@@ -1810,7 +2040,7 @@ static const struct regmap_config bm1000_pcie_syscon_regmap_config = {
 	.reg_stride = 4
 };
 
-static struct regmap *bm1000_pcie_get_gpr_acpi(struct bm1000_pcie *bm)
+static struct regmap *bm1000_pcie_get_gpr_acpi(struct baikal_pcie *bp)
 {
 	struct device *dev;
 	struct acpi_device *adev;
@@ -1881,25 +2111,26 @@ ret:
 	return regmap;
 }
 
-static int bm1000_get_acpi_data(struct device *dev, struct bm1000_pcie *bm,
+static int bm1000_get_acpi_data(struct device *dev, struct baikal_pcie *bp,
 				struct baikal_pcie_acpi_data *mem_data)
 {
 	struct acpi_device *adev = to_acpi_device(dev), *res_dev;
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
 	int ret;
 
-	bm->gpr = bm1000_pcie_get_gpr_acpi(bm);
+	bm->gpr = bm1000_pcie_get_gpr_acpi(bp);
 	if (IS_ERR_OR_NULL(bm->gpr)) {
 		dev_err(dev, "No PCIe GPR specified\n");
 		return -EINVAL;
 	}
 
-	ret = bm1000_pcie_get_res_acpi(adev, &res_dev, bm, mem_data);
+	ret = bm1000_pcie_get_res_acpi(adev, &res_dev, bp, mem_data);
 	if (ret) {
 		dev_err(dev, "failed to get resource info\n");
 		return ret;
 	}
 
-	ret = bm1000_pcie_get_irq_acpi(dev, res_dev, bm);
+	ret = bm1000_pcie_get_irq_acpi(dev, res_dev, bp);
 	if (ret) {
 		dev_err(dev, "failed to get irq info\n");
 		return ret;
@@ -1911,6 +2142,7 @@ static int bm1000_get_acpi_data(struct device *dev, struct bm1000_pcie *bm,
 static int bm1000_pcie_init(struct pci_config_window *cfg)
 {
 	struct device *dev = cfg->parent;
+	struct baikal_pcie *bp;
 	struct bm1000_pcie *bm;
 	struct dw_pcie *pci;
 	struct dw_pcie_rp *pp;
@@ -1926,15 +2158,17 @@ static int bm1000_pcie_init(struct pci_config_window *cfg)
 	pci->max_link_speed = 3;
 	dev->fwnode = &to_acpi_device(dev)->fwnode;
 
-	bm = devm_kzalloc(dev, sizeof(*bm), GFP_KERNEL);
-	if (!bm)
+	bp = devm_kzalloc(dev, sizeof(*bp), GFP_KERNEL);
+	if (!bp)
 		return -ENOMEM;
 
-	cfg->priv = bm;
-	bm->pci = pci;
+	bm = &bp->bm1000_pcie;
+
+	cfg->priv = bp;
+	bp->pci = pci;
 	dev_set_drvdata(dev, bm);
 
-	ret = bm1000_get_acpi_data(dev, bm, &mem_data);
+	ret = bm1000_get_acpi_data(dev, bp, &mem_data);
 	if (ret) {
 		dev_err(dev, "failed to get data from ACPI\n");
 		return ret;
@@ -1965,8 +2199,8 @@ static int bm1000_pcie_init(struct pci_config_window *cfg)
 	dw_pcie_version_detect(pci);
 	bm1000_pcie_setup_rc_acpi(pp, &mem_data);
 
-	if (!bm1000_pcie_link_up(bm->pci))
-		bm1000_pcie_start_link(bm->pci);
+	if (!bm1000_pcie_link_up(bp->pci))
+		bm1000_pcie_start_link(bp->pci);
 
 	/* Link will be retrained by 'bm1000_pcie_map_bus()' */
 	bm->retrained = false;
@@ -1977,13 +2211,14 @@ static void __iomem *bm1000_pcie_map_bus(struct pci_bus *bus,
 					 unsigned int devfn, int where)
 {
 	struct pci_config_window *cfg = bus->sysdata;
-	struct bm1000_pcie *bm = cfg->priv;
+	struct baikal_pcie *bp = cfg->priv;
+	struct bm1000_pcie *bm = &bp->bm1000_pcie;
 	unsigned int devfn_shift = cfg->ops->bus_shift - 8;
 	unsigned int busn = bus->number;
 	void __iomem *base;
 
 	if (!bm->retrained) {
-		struct pci_host_bridge **root_bridge = &bm->pci->pp.bridge;
+		struct pci_host_bridge **root_bridge = &bp->pci->pp.bridge;
 
 		if (!*root_bridge) {
 			*root_bridge = to_pci_host_bridge(bus->bridge);
@@ -1993,13 +2228,13 @@ static void __iomem *bm1000_pcie_map_bus(struct pci_bus *bus,
 
 			if (root->bus == (*root_bridge)->bus) {
 				pci_bus_add_devices(root->bus);
-				bm1000_pcie_link_speed_fixup(bm, root->bus);
+				bm1000_pcie_link_speed_fixup(bp, root->bus);
 				bm->retrained = true;
 			}
 		}
 	}
 
-	if (bus->number != cfg->busr.start && !bm1000_pcie_link_up(bm->pci))
+	if (bus->number != cfg->busr.start && !bm1000_pcie_link_up(bp->pci))
 		return NULL;
 
 	if (bus->number == cfg->busr.start) {
@@ -2010,7 +2245,7 @@ static void __iomem *bm1000_pcie_map_bus(struct pci_bus *bus,
 		if (PCI_SLOT(devfn) > 0)
 			return NULL;
 		else
-			return bm->pci->dbi_base + where;
+			return bp->pci->dbi_base + where;
 	}
 
 	if (busn < cfg->busr.start || busn > cfg->busr.end)
@@ -2050,15 +2285,6 @@ const struct pci_ecam_ops baikal_m_pcie_ecam_ops = {
 #define BS1000_PCIE2_P1_DBI_BASE			0x45400000
 
 #define BS1000_ADDR_IN_CHIP(base)			((base) & 0xffffffff)
-
-struct bs1000_pcie {
-	struct dw_pcie		*pci;
-	void __iomem		*apb_base;
-	u64			cpu_addr_mask;
-#if defined(CONFIG_ACPI) && defined(CONFIG_PCI_QUIRKS)
-	int			edma_irq[BAIKAL_EDMA_WR_CH + BAIKAL_EDMA_RD_CH];
-#endif
-};
 
 static void bs1000_pcie_ep_init(struct dw_pcie_ep *ep)
 {
@@ -2108,15 +2334,14 @@ static const struct dw_pcie_ep_ops bs1000_pcie_ep_ops = {
 };
 
 static int bs1000_get_resources(struct platform_device *pdev,
-				struct dw_pcie *pci,
 				const struct baikal_pcie_of_data *data)
 {
-	struct bs1000_pcie *bs = platform_get_drvdata(pdev);
+	struct baikal_pcie *bp = platform_get_drvdata(pdev);
+	struct bs1000_pcie *bs = &bp->bs1000_pcie;
+	struct dw_pcie *pci = bp->pci;
 	struct device *dev = pci->dev;
 	struct resource *res;
 	int ret;
-
-	bs->pci = pci;
 
 	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
 	if (ret)
@@ -2163,14 +2388,16 @@ static int bs1000_get_resources(struct platform_device *pdev,
 
 static u64 bs1000_pcie_cpu_addr_fixup(struct dw_pcie *pci, u64 cpu_addr)
 {
-	struct bs1000_pcie *bs = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bs1000_pcie *bs = &bp->bs1000_pcie;
 
 	return cpu_addr & bs->cpu_addr_mask;
 }
 
 static int bs1000_pcie_link_up(struct dw_pcie *pci)
 {
-	struct bs1000_pcie *bs = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bs1000_pcie *bs = &bp->bs1000_pcie;
 	u32 reg;
 
 	reg = readl(bs->apb_base + BS1000_PCIE_APB_PE_LINK_DBG2);
@@ -2181,7 +2408,8 @@ static int bs1000_pcie_link_up(struct dw_pcie *pci)
 
 static int bs1000_pcie_start_link(struct dw_pcie *pci)
 {
-	struct bs1000_pcie *bs = dev_get_drvdata(pci->dev);
+	struct baikal_pcie *bp = dev_get_drvdata(pci->dev);
+	struct bs1000_pcie *bs = &bp->bs1000_pcie;
 	u32 reg;
 
 	reg = readl(bs->apb_base + BS1000_PCIE_APB_PE_GEN_CTRL3);
@@ -2233,8 +2461,9 @@ static int bs1000_pcie_host_init(struct dw_pcie_rp *pp)
 
 static irqreturn_t bs1000_pcie_intr_irq_handler(int irq, void *arg)
 {
-	struct bs1000_pcie *bs = arg;
-	struct dw_pcie *pci = bs->pci;
+	struct baikal_pcie *bp = arg;
+	struct bs1000_pcie *bs = &bp->bs1000_pcie;
+	struct dw_pcie *pci = bp->pci;
 	struct device *dev = pci->dev;
 	u16 exp_cap_off;
 	u16 ext_cap_err_off;
@@ -2298,8 +2527,8 @@ static irqreturn_t bs1000_pcie_intr_irq_handler(int irq, void *arg)
 static u64 bs1000_pcie_edma_address(struct device *dev, phys_addr_t cpu_addr)
 {
 	struct platform_device *pdev = to_platform_device(dev);
-	struct bs1000_pcie *bs = platform_get_drvdata(pdev);
-	struct pci_bus *bus = bs->pci->pp.bridge->bus;
+	struct baikal_pcie *bp = platform_get_drvdata(pdev);
+	struct pci_bus *bus = bp->pci->pp.bridge->bus;
 	struct pci_bus_region region;
 	struct resource res = {
 		.flags = IORESOURCE_MEM,
@@ -2322,9 +2551,9 @@ static const struct dw_pcie_host_ops bs1000_pcie_host_ops = {
 
 static int bs1000_add_pcie_port(struct platform_device *pdev)
 {
-	struct bs1000_pcie *bs = platform_get_drvdata(pdev);
+	struct baikal_pcie *bp = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
-	struct dw_pcie *pci = bs->pci;
+	struct dw_pcie *pci = bp->pci;
 	struct dw_pcie_rp *pp = &pci->pp;
 	int ret;
 
@@ -2334,7 +2563,7 @@ static int bs1000_add_pcie_port(struct platform_device *pdev)
 		pp->irq = 0;
 	} else {
 		ret = devm_request_irq(dev, pp->irq, bs1000_pcie_intr_irq_handler,
-					       IRQF_SHARED, "bs1000-pcie-intr", bs);
+					       IRQF_SHARED, "bs1000-pcie-intr", bp);
 		if (ret) {
 			dev_err(dev, "failed to request IRQ %d\n", pp->irq);
 			return ret;
@@ -2533,11 +2762,12 @@ skip_lanes:
 
 static int bs1000_pcie_get_res_acpi(struct acpi_device *adev,
 				    struct acpi_device **res_dev,
-				    struct bs1000_pcie *bs,
+				    struct baikal_pcie *bp,
 				    struct baikal_pcie_acpi_data *mem_data)
 {
 	struct device *dev = &adev->dev;
-	struct dw_pcie_rp *pp = &bs->pci->pp;
+	struct bs1000_pcie *bs = &bp->bs1000_pcie;
+	struct dw_pcie_rp *pp = &bp->pci->pp;
 	struct resource_entry *entry;
 	struct list_head list, *pos;
 	struct fwnode_handle *fwnode;
@@ -2590,23 +2820,23 @@ static int bs1000_pcie_get_res_acpi(struct acpi_device *adev,
 	} else {
 		bs->cpu_addr_mask = 0xffffffffff;
 	}
-	bs->pci->dbi_base = devm_ioremap_resource(dev, entry->res);
-	if (IS_ERR(bs->pci->dbi_base)) {
+	bp->pci->dbi_base = devm_ioremap_resource(dev, entry->res);
+	if (IS_ERR(bp->pci->dbi_base)) {
 		dev_err(dev, "error with dbi ioremap\n");
-		ret = PTR_ERR(bs->pci->dbi_base);
+		ret = PTR_ERR(bp->pci->dbi_base);
 		return ret;
 	}
 
 	/* ATU */
 	pos = pos->next;
 	entry = list_entry(pos, struct resource_entry, node);
-	bs->pci->atu_base = devm_ioremap_resource(dev, entry->res);
-	if (IS_ERR(bs->pci->atu_base)) {
+	bp->pci->atu_base = devm_ioremap_resource(dev, entry->res);
+	if (IS_ERR(bp->pci->atu_base)) {
 		dev_err(dev, "error with atu ioremap\n");
-		ret = PTR_ERR(bs->pci->atu_base);
+		ret = PTR_ERR(bp->pci->atu_base);
 		return ret;
 	}
-	bs->pci->atu_size = resource_size(entry->res);
+	bp->pci->atu_size = resource_size(entry->res);
 
 	/* APB */
 	pos = pos->next;
@@ -2672,9 +2902,10 @@ static int bs1000_pcie_get_res_acpi(struct acpi_device *adev,
 
 static int bs1000_pcie_get_irq_acpi(struct device *dev,
 				    struct acpi_device *res_dev,
-				    struct bs1000_pcie *bs)
+				    struct baikal_pcie *bp)
 {
-	struct dw_pcie_rp *pp = &bs->pci->pp;
+	struct bs1000_pcie *bs = &bp->bs1000_pcie;
+	struct dw_pcie_rp *pp = &bp->pci->pp;
 	struct resource res;
 	int index, ret = 0;
 
@@ -2696,7 +2927,7 @@ static int bs1000_pcie_get_irq_acpi(struct device *dev,
 		}
 		bs->edma_irq[index] = res.start;
 	}
-	bs->pci->edma.nr_irqs = index;
+	bp->pci->edma.nr_irqs = index;
 
 	/* RC interrupts */
 	if (ret == 0)
@@ -2720,7 +2951,7 @@ static int bs1000_pcie_get_irq_acpi(struct device *dev,
 	pp->irq = res.start;
 
 	ret = devm_request_irq(dev, pp->irq, bs1000_pcie_intr_irq_handler,
-			       IRQF_SHARED, "bs1000-pcie-intr", bs);
+			       IRQF_SHARED, "bs1000-pcie-intr", bp);
 	if (ret) {
 		dev_err(dev, "failed to request IRQ %d\n", pp->irq);
 		return ret;
@@ -2729,19 +2960,19 @@ static int bs1000_pcie_get_irq_acpi(struct device *dev,
 	return 0;
 }
 
-static int bs1000_get_acpi_data(struct device *dev, struct bs1000_pcie *bs,
+static int bs1000_get_acpi_data(struct device *dev, struct baikal_pcie *bp,
 				struct baikal_pcie_acpi_data *mem_data)
 {
 	struct acpi_device *adev = to_acpi_device(dev), *res_dev;
 	int ret;
 
-	ret = bs1000_pcie_get_res_acpi(adev, &res_dev, bs, mem_data);
+	ret = bs1000_pcie_get_res_acpi(adev, &res_dev, bp, mem_data);
 	if (ret) {
 		dev_err(dev, "failed to get resource info\n");
 		return ret;
 	}
 
-	ret = bs1000_pcie_get_irq_acpi(dev, res_dev, bs);
+	ret = bs1000_pcie_get_irq_acpi(dev, res_dev, bp);
 	if (ret) {
 		dev_err(dev, "failed to get irq info\n");
 		return ret;
@@ -2752,9 +2983,10 @@ static int bs1000_get_acpi_data(struct device *dev, struct bs1000_pcie *bs,
 
 static int bs1000_pcie_acpi_edma_irq_vector(struct device *dev, unsigned int nr)
 {
-	struct bs1000_pcie *bs = dev_get_drvdata(dev);
+	struct baikal_pcie *bp = dev_get_drvdata(dev);
+	struct bs1000_pcie *bs = &bp->bs1000_pcie;
 
-	if (nr >= bs->pci->edma.nr_irqs)
+	if (nr >= bp->pci->edma.nr_irqs)
 		return -EINVAL;
 
 	return bs->edma_irq[nr];
@@ -2762,8 +2994,8 @@ static int bs1000_pcie_acpi_edma_irq_vector(struct device *dev, unsigned int nr)
 
 static u64 bs1000_pcie_acpi_edma_address(struct device *dev, phys_addr_t cpu_addr)
 {
-	struct bs1000_pcie *bs = dev_get_drvdata(dev);
-	struct pci_bus *bus = bs->pci->pp.bridge->bus;
+	struct baikal_pcie *bp = dev_get_drvdata(dev);
+	struct pci_bus *bus = bp->pci->pp.bridge->bus;
 	struct pci_bus_region region;
 	struct resource res = {
 		.flags = IORESOURCE_MEM,
@@ -2783,7 +3015,7 @@ static const struct dw_edma_plat_ops bs1000_pcie_acpi_edma_ops = {
 static int bs1000_pcie_init(struct pci_config_window *cfg)
 {
 	struct device *dev = cfg->parent;
-	struct bs1000_pcie *bs;
+	struct baikal_pcie *bp;
 	struct dw_pcie *pci;
 	struct dw_pcie_rp *pp;
 	struct baikal_pcie_acpi_data mem_data = {};
@@ -2796,15 +3028,15 @@ static int bs1000_pcie_init(struct pci_config_window *cfg)
 	pci->dev = dev;
 	pci->ops = &bs1000_pcie_rc_of_data.dw_pcie_ops;
 
-	bs = devm_kzalloc(dev, sizeof(*bs), GFP_KERNEL);
-	if (!bs)
+	bp = devm_kzalloc(dev, sizeof(*bp), GFP_KERNEL);
+	if (!bp)
 		return -ENOMEM;
 
-	cfg->priv = bs;
-	bs->pci = pci;
-	dev_set_drvdata(dev, bs);
+	cfg->priv = bp;
+	bp->pci = pci;
+	dev_set_drvdata(dev, bp);
 
-	ret = bs1000_get_acpi_data(dev, bs, &mem_data);
+	ret = bs1000_get_acpi_data(dev, bp, &mem_data);
 	if (ret) {
 		dev_err(dev, "failed to get data from ACPI\n");
 		return ret;
@@ -2857,15 +3089,15 @@ static void __iomem *bs1000_pcie_map_bus(struct pci_bus *bus,
 					 unsigned int devfn, int where)
 {
 	struct pci_config_window *cfg = bus->sysdata;
-	struct bs1000_pcie *bs = cfg->priv;
+	struct baikal_pcie *bp = cfg->priv;
 	unsigned int devfn_shift = cfg->ops->bus_shift - 8;
 	unsigned int busn = bus->number;
 	void __iomem *base;
 
-	if (!bs->pci->pp.bridge)
-		bs->pci->pp.bridge = to_pci_host_bridge(bus->bridge);
+	if (!bp->pci->pp.bridge)
+		bp->pci->pp.bridge = to_pci_host_bridge(bus->bridge);
 
-	if (bus->number != cfg->busr.start && !bs1000_pcie_link_up(bs->pci))
+	if (bus->number != cfg->busr.start && !bs1000_pcie_link_up(bp->pci))
 		return NULL;
 
 	if (bus->number == cfg->busr.start) {
@@ -2876,7 +3108,7 @@ static void __iomem *bs1000_pcie_map_bus(struct pci_bus *bus,
 		if (PCI_SLOT(devfn) > 0)
 			return NULL;
 		else
-			return bs->pci->dbi_base + where;
+			return bp->pci->dbi_base + where;
 	}
 
 	if (busn < cfg->busr.start || busn > cfg->busr.end)
@@ -2898,17 +3130,11 @@ const struct pci_ecam_ops baikal_s_pcie_ecam_ops = {
 };
 #endif
 
-union baikal_pcie {
-	struct bl1000_pcie	bl1000_pcie;
-	struct bm1000_pcie	bm1000_pcie;
-	struct bs1000_pcie	bs1000_pcie;
-};
-
 static int baikal_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct dw_pcie *pci;
-	union baikal_pcie *bp;
+	struct baikal_pcie *bp;
 	const struct baikal_pcie_of_data *data;
 	int ret;
 
@@ -2927,8 +3153,11 @@ static int baikal_pcie_probe(struct platform_device *pdev)
 	pci->dev = dev;
 	pci->ops = &data->dw_pcie_ops;
 
+	bp->pci = pci;
+	bp->data = data;
+
 	platform_set_drvdata(pdev, bp);
-	ret = data->get_resources(pdev, pci, data);
+	ret = data->get_resources(pdev, data);
 	if (ret)
 		return ret;
 
@@ -2941,10 +3170,17 @@ static int baikal_pcie_probe(struct platform_device *pdev)
 		break;
 	case DW_PCIE_EP_TYPE:
 		ret = dw_pcie_ep_init(&pci->ep);
+		if (ret)
+			return ret;
+
+		ret = dw_pcie_ep_init_registers(&pci->ep);
 		if (ret) {
-			dev_err(dev, "failed to initialize endpoint\n");
+			dev_err(dev, "Failed to initialize DWC endpoint registers\n");
+			dw_pcie_ep_deinit(&pci->ep);
 			return ret;
 		}
+
+		pci_epc_init_notify(pci->ep.epc);
 
 		break;
 	default:
@@ -2961,9 +3197,23 @@ static const struct baikal_pcie_of_data bl1000_pcie_rc_of_data = {
 		.cpu_addr_fixup	= bl1000_pcie_cpu_addr_fixup,
 		.link_up	= bl1000_pcie_link_up,
 		.start_link	= bl1000_pcie_start_link,
+		.stop_link	= bl1000_pcie_stop_link,
 	},
 	.get_resources = bl1000_get_resources,
 	.add_pcie_port = bl1000_add_pcie_port,
+	.power_off = bl1000_power_off,
+	.exit_from_l2 = bl1000_exit_from_l2,
+	.pm_support = true,
+};
+
+static const struct baikal_pcie_of_data bl1000_pcie_ep_of_data = {
+	.mode = DW_PCIE_EP_TYPE,
+	.dw_pcie_ops = {
+		.cpu_addr_fixup	= bl1000_pcie_cpu_addr_fixup,
+		.link_up	= bl1000_pcie_link_up,
+		.start_link	= bl1000_pcie_start_link,
+	},
+	.get_resources = bl1000_get_resources,
 };
 
 static const struct baikal_pcie_of_data bm1000_pcie_rc_of_data = {
@@ -3003,6 +3253,10 @@ static const struct of_device_id baikal_pcie_of_match[] = {
 		.data = &bl1000_pcie_rc_of_data,
 	},
 	{
+		.compatible = "baikal,bl1000-pcie-ep",
+		.data = &bl1000_pcie_ep_of_data,
+	},
+	{
 		.compatible = "baikal,bm1000-pcie",
 		.data = &bm1000_pcie_rc_of_data,
 	},
@@ -3017,11 +3271,51 @@ static const struct of_device_id baikal_pcie_of_match[] = {
 	{ },
 };
 
+static int baikal_pcie_suspend_noirq(struct device *dev)
+{
+	struct baikal_pcie *bp = dev_get_drvdata(dev);
+	int ret;
+
+	if (!bp->data->pm_support)
+		return 0;
+
+	ret = dw_pcie_suspend_noirq(bp->pci);
+	if (ret)
+		return ret;
+
+	if (bp->data->power_off)
+		ret = bp->data->power_off(bp);
+
+	return ret;
+}
+
+static int baikal_pcie_resume_noirq(struct device *dev)
+{
+	struct baikal_pcie *bp = dev_get_drvdata(dev);
+	int ret;
+
+	if (!bp->data->pm_support)
+		return 0;
+
+	if (bp->data->exit_from_l2) {
+		ret = bp->data->exit_from_l2(bp);
+		if (ret)
+			return ret;
+	}
+
+	return dw_pcie_resume_noirq(bp->pci);
+}
+
+static const struct dev_pm_ops baikal_pcie_pm_ops = {
+	NOIRQ_SYSTEM_SLEEP_PM_OPS(baikal_pcie_suspend_noirq, baikal_pcie_resume_noirq)
+};
+
 static struct platform_driver baikal_pcie_driver = {
 	.driver = {
 		.name = "baikal-pcie",
 		.of_match_table = baikal_pcie_of_match,
 		.suppress_bind_attrs = true,
+		.pm = &baikal_pcie_pm_ops,
 	},
 	.probe = baikal_pcie_probe,
 };

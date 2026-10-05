@@ -19,6 +19,7 @@
 	cpus {
 		baikal,demand-qos = <10>;
 		baikal,prefetch-qos = <8>;
+
 		cpu@0 {
 			baikal,enable-cbusy-tuning = <1>;
 		};
@@ -39,23 +40,24 @@
 		compatible = "baikal,snd-soc-baikal";
 		baikal,cpu-dai = <&sc_i2s0>;
 		baikal,codec = <&nau8822>;
-		baikal,codec-name = "nau8822";
+		baikal,codec-name = "nau8822-hifi";
 		baikal,dai-name = "HiFi-sc-sound";
 		baikal,stream-name = "HiFi-sc-sound";
 	};
 };
 
-#if 0 /* TODO: v2.0 */
 &ehsp_dp_phy {
 	status = "okay";
 };
+
+/delete-node/ &ehsp_pcie0_p0_ep;
+/delete-node/ &ehsp_pcie1_p0_ep;
 
 &ehsp_vdu {
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
 };
-#endif
 
 &hsp_dmac {
 	status = "okay";
@@ -143,12 +145,10 @@
 };
 
 &hsp_usb0_phy20_l0 {
-	compatible = "cdns3,usb2-phy";
 	status = "okay";
 };
 
 &hsp_usb0_phy20_l1 {
-	compatible = "cdns3,usb2-phy";
 	status = "okay";
 };
 
@@ -168,7 +168,7 @@
 		reg = <1>;
 		peer-hub = <&usb_hub_3_0>;
 		i2c-bus = <&usb_hub>;
-		reset-gpios = <&portc 1 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&portc 1 GPIO_ACTIVE_LOW>;
 	};
 
 	/* 3.0 hub on port 2 */
@@ -177,7 +177,7 @@
 		reg = <2>;
 		peer-hub = <&usb_hub_2_0>;
 		i2c-bus = <&usb_hub>;
-		reset-gpios = <&portc 1 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&portc 1 GPIO_ACTIVE_LOW>;
 	};
 };
 
@@ -202,12 +202,10 @@
 };
 
 &hsp_usb1_phy20_l0 {
-	compatible = "cdns3,usb2-phy";
 	status = "okay";
 };
 
 &hsp_usb1_phy20_l1 {
-	compatible = "cdns3,usb2-phy";
 	status = "okay";
 };
 
@@ -221,6 +219,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+
 	backlight {
 		min-brightness-level = <10>;
 		default-brightness-level = <60>;
@@ -233,35 +232,7 @@
 	status = "okay";
 };
 
-#if 1 /* TODO: v2.0 */
-&ehsp_cmu0_pll {
-	status = "disabled";
-};
-
-&ehsp_cmu0_clkch {
-	status = "disabled";
-};
-
-&ehsp_cmu1_pll {
-	status = "disabled";
-};
-
-&ehsp_cmu1_clkch {
-	status = "disabled";
-};
-
-&ehsp_cmu2_pll {
-	status = "disabled";
-};
-
-&ehsp_cmu2_clkch {
-	status = "disabled";
-};
-
-&ehsp_pvt_clkch {
-	status = "disabled";
-};
-
+#if 1 /* TODO */
 &its0 {
 	status = "disabled";
 };
@@ -289,35 +260,6 @@
 
 &sc_dmac {
 	status = "okay";
-};
-
-&sc_emmc1_sdhci {
-	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc1>,
-		  <&sc_emmc_hc1_1_8v>,
-		  <&sc_emmc_hc1_mem_pwrup>,
-		  <&sc_emmc_pu_hc1_cmd_dat_0_7>,
-		  <&sc_emmc_pd_hc1_dqs>;
-	bus-width = <8>;
-	no-sd;
-	no-sdio;
-	non-removable;
-	mmc-hs400-1_8v;
-	mmc-hs400-enhanced-strobe;
-	sdhci-caps = <0x0 0x40000>;
-	sdhci-caps-mask = <0x8000000 0x580000>; /* TODO: mask DMA support */
-};
-
-&sc_emmc2_sdhci {
-	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc2>,
-		  <&sc_emmc_hc2_1_8v>,
-		  <&sc_emmc_hc2_mem_pwrup>,
-		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
-		  <&sc_emmc_pd_hc2_dqs>;
-	bus-width = <4>;
-	sdhci-caps-mask = <0x8000000 0x580000>; /* TODO: mask DMA support */
-	wp-inverted;
 };
 
 &sc_emmc_pinctrl {
@@ -382,7 +324,7 @@
 
 	nau8822: nau8822@1a {
 		compatible = "nuvoton,nau8822";
-		#sound-dai-cells = <1>;
+		#sound-dai-cells = <0>;
 		reg = <0x1a>;
 	};
 
@@ -457,12 +399,48 @@
 	status = "okay";
 };
 
-&sc_sdio_sdhci { /* Connected to M.2 Key E */
+&sc_sdhci0 { /* Connected to M.2 Key E */
 	status = "okay";
 	pinctrl = <&sc_gmac_sdio_bit1_mode1>;
 	bus-width = <4>;
-	sdhci-caps-mask = <0x8000000 0x580000>;
-	max-frequency = <25000000>;
+	no-mmc;
+	non-removable;
+	cap-sdio-irq;
+	keep-power-in-suspend;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	rtl8822cs: wifi@1 {
+		compatible = "realtek,rtl8822cs";
+		reg = <1>;
+	};
+};
+
+&sc_sdhci1 {
+	status = "okay";
+	pinctrl = <&sc_emmc_mux_sdhci1>,
+		  <&sc_emmc_sdhci1_1v8>,
+		  <&sc_emmc_sdhci1_mem_pwrup>,
+		  <&sc_emmc_pu_sdhci1_cmd_dat_0_7>,
+		  <&sc_emmc_pd_sdhci1_dqs>;
+	bus-width = <8>;
+	no-sd;
+	no-sdio;
+	non-removable;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	sdhci-caps = <0x0 0x40000>;
+};
+
+&sc_sdhci2 {
+	status = "okay";
+	pinctrl = <&sc_emmc_mux_sdhci2>,
+		  <&sc_emmc_sdhci2_1v8>,
+		  <&sc_emmc_sdhci2_mem_pwrup>,
+		  <&sc_emmc_pu_sdhci2_cmd_dat_0_7>,
+		  <&sc_emmc_pd_sdhci2_dqs>;
+	bus-width = <4>;
+	wp-inverted;
 };
 
 &sc_smmu {
@@ -473,6 +451,11 @@
 	status = "okay";
 	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
 		  <&sc_lsp_pin11_uart1_txd>;
+	uart-has-rtscts;
+
+	bluetooth {
+		compatible = "realtek,rtl8822cs-bt";
+	};
 };
 
 &sc_uart2 { /* Connected to USB-UART bridge (CP2105) */
@@ -493,11 +476,9 @@
 	status = "okay";
 };
 
-#if 0 /* TODO: v2.0 */
 &ehsp_pvt {
 	status = "okay";
 };
-#endif
 
 &ca710_pvt {
 	status = "okay";

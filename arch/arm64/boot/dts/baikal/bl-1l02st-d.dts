@@ -141,23 +141,23 @@
 	};
 };
 
-&sc_emmc1_sdhci {
+&sc_sdhci1 {
 	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc1>,
-		  <&sc_emmc_hc1_1_8v>,
-		  <&sc_emmc_hc1_mem_pwrup>,
-		  <&sc_emmc_pu_hc1_cmd_dat_0_7>,
-		  <&sc_emmc_pd_hc1_dqs>;
+	pinctrl = <&sc_emmc_mux_sdhci1>,
+		  <&sc_emmc_sdhci1_1v8>,
+		  <&sc_emmc_sdhci1_mem_pwrup>,
+		  <&sc_emmc_pu_sdhci1_cmd_dat_0_7>,
+		  <&sc_emmc_pd_sdhci1_dqs>;
 	bus-width = <4>;
 };
 
-&sc_emmc2_sdhci {
+&sc_sdhci2 {
 	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc2>,
-		  <&sc_emmc_hc2_1_8v>,
-		  <&sc_emmc_hc2_mem_pwrup>,
-		  <&sc_emmc_pu_hc2_cmd_dat_0_7>,
-		  <&sc_emmc_pd_hc2_dqs>;
+	pinctrl = <&sc_emmc_mux_sdhci2>,
+		  <&sc_emmc_sdhci2_1v8>,
+		  <&sc_emmc_sdhci2_mem_pwrup>,
+		  <&sc_emmc_pu_sdhci2_cmd_dat_0_7>,
+		  <&sc_emmc_pd_sdhci2_dqs>;
 	bus-width = <4>;
 };
 

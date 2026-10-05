@@ -46,9 +46,9 @@
 		i2c5	= &hsp_i2c1;
 		i2c6	= &hsp_i2c2;
 		i2c7	= &hsp_i2c3;
-		mmc0	= &sc_sdio_sdhci;
-		mmc1	= &sc_emmc1_sdhci;
-		mmc2	= &sc_emmc2_sdhci;
+		mmc0	= &sc_sdhci0;
+		mmc1	= &sc_sdhci1;
+		mmc2	= &sc_sdhci2;
 		serial0	= &sc_uart0;
 		serial1	= &sc_uart1;
 		serial2	= &sc_uart2;
@@ -153,10 +153,10 @@
 				"sc-cmu0-clkch.wdt0",		/* 17 */
 				"sc-cmu0-clkch.wdt1",		/* 18 */
 				"sc-cmu0-clkch.emmc_cfg",	/* 19 */
-				"sc-cmu0-clkch.emmc1_func",	/* 20 */
-				"sc-cmu0-clkch.emmc1_sdm",	/* 21 */
-				"sc-cmu0-clkch.emmc2_func",	/* 22 */
-				"sc-cmu0-clkch.emmc2_sdm",	/* 23 */
+				"sc-cmu0-clkch.sdhci1_func",	/* 20 */
+				"sc-cmu0-clkch.sdhci1_sdm",	/* 21 */
+				"sc-cmu0-clkch.sdhci2_func",	/* 22 */
+				"sc-cmu0-clkch.sdhci2_sdm",	/* 23 */
 				"sc-cmu0-clkch.emmc_gpio_db",	/* 24 */
 				"sc-cmu0-clkch.gmac_cfg",	/* 25 */
 				"sc-cmu0-clkch.gmac_func",	/* 26 */
@@ -562,17 +562,21 @@
 			enable-method = "psci";
 			i-cache-size = <0x10000>;
 			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
 			d-cache-size = <0x10000>;
 			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&l2_0>;
 			clocks = <&ca710_clkmux 0>;
-			baikal,cpu-freqs = <1500000000>, <0x3fffffff>;
+			baikal,cpu-freqs = <1800000000>, <0x3fffffff>;
 			#cooling-cells = <2>; /* min followed by max */
+			cpu-idle-states = <&CPU_RET>, <&CPU_OFF>;
 
 			l2_0: l2-cache {
 				compatible = "cache";
 				cache-size = <0x80000>;
 				cache-line-size = <64>;
+				cache-sets = <1024>;
 				cache-unified;
 				cache-level = <2>;
 				next-level-cache = <&l3>;
@@ -586,17 +590,21 @@
 			enable-method = "psci";
 			i-cache-size = <0x10000>;
 			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
 			d-cache-size = <0x10000>;
 			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&l2_1>;
 			clocks = <&ca710_clkmux 1>;
-			baikal,cpu-freqs = <1500000000>, <0x3fffffff>;
+			baikal,cpu-freqs = <1800000000>, <0x3fffffff>;
 			#cooling-cells = <2>; /* min followed by max */
+			cpu-idle-states = <&CPU_RET>, <&CPU_OFF>;
 
 			l2_1: l2-cache {
 				compatible = "cache";
 				cache-size = <0x80000>;
 				cache-line-size = <64>;
+				cache-sets = <1024>;
 				cache-unified;
 				cache-level = <2>;
 				next-level-cache = <&l3>;
@@ -610,17 +618,21 @@
 			enable-method = "psci";
 			i-cache-size = <0x10000>;
 			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
 			d-cache-size = <0x10000>;
 			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&l2_2>;
 			clocks = <&ca710_clkmux 2>;
-			baikal,cpu-freqs = <1500000000>, <0x3fffffff>;
+			baikal,cpu-freqs = <1800000000>, <0x3fffffff>;
 			#cooling-cells = <2>; /* min followed by max */
+			cpu-idle-states = <&CPU_RET>, <&CPU_OFF>;
 
 			l2_2: l2-cache {
 				compatible = "cache";
 				cache-size = <0x80000>;
 				cache-line-size = <64>;
+				cache-sets = <1024>;
 				cache-unified;
 				cache-level = <2>;
 				next-level-cache = <&l3>;
@@ -634,20 +646,46 @@
 			enable-method = "psci";
 			i-cache-size = <0x10000>;
 			i-cache-line-size = <64>;
+			i-cache-sets = <256>;
 			d-cache-size = <0x10000>;
 			d-cache-line-size = <64>;
+			d-cache-sets = <256>;
 			next-level-cache = <&l2_3>;
 			clocks = <&ca710_clkmux 3>;
-			baikal,cpu-freqs = <1500000000>, <0x3fffffff>;
+			baikal,cpu-freqs = <1800000000>, <0x3fffffff>;
 			#cooling-cells = <2>; /* min followed by max */
+			cpu-idle-states = <&CPU_RET>, <&CPU_OFF>;
 
 			l2_3: l2-cache {
 				compatible = "cache";
 				cache-size = <0x80000>;
 				cache-line-size = <64>;
+				cache-sets = <1024>;
 				cache-unified;
 				cache-level = <2>;
 				next-level-cache = <&l3>;
+			};
+		};
+
+		idle-states {
+			entry-method = "psci";
+
+			CPU_RET: cpu-retention {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00000001>;
+				local-timer-stop;
+				entry-latency-us = <40>;
+				exit-latency-us = <10>;
+				min-residency-us = <100>;
+			};
+
+			CPU_OFF: cpu-off {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00010002>;
+				local-timer-stop;
+				entry-latency-us = <900>;
+				exit-latency-us = <100>;
+				min-residency-us = <1000>;
 			};
 		};
 
@@ -655,6 +693,7 @@
 			compatible = "cache";
 			cache-size = <0x200000>;
 			cache-line-size = <64>;
+			cache-sets = <2048>;
 			cache-unified;
 			cache-level = <3>;
 			next-level-cache = <&l4>;
@@ -664,6 +703,7 @@
 			compatible = "cache";
 			cache-size = <0x400000>;
 			cache-line-size = <64>;
+			cache-sets = <4096>;
 			cache-unified;
 			cache-level = <4>;
 		};
@@ -1113,42 +1153,42 @@
 			sc_emmc_mux_gpio1: sc-emmc-mux-gpio1-pin {
 				pinctrl-single,bits = <0x0 0x00000000 0x00000001>;
 			};
-			sc_emmc_mux_emmc1: sc-emmc-mux-emmc1-pin {
+			sc_emmc_mux_sdhci1: sc-emmc-mux-sdhci1-pin {
 				pinctrl-single,bits = <0x0 0x00000001 0x00000001>;
 			};
 
 			sc_emmc_mux_gpio2: sc-emmc-mux-gpio2-pin {
 				pinctrl-single,bits = <0x0 0x00000000 0x00000002>;
 			};
-			sc_emmc_mux_emmc2: sc-emmc-mux-emmc2-pin {
+			sc_emmc_mux_sdhci2: sc-emmc-mux-sdhci2-pin {
 				pinctrl-single,bits = <0x0 0x00000002 0x00000002>;
 			};
 
-			sc_emmc_hc1_3_3v: sc-emmc-hc1-3-3v-pin {
+			sc_emmc_sdhci1_3v3: sc-emmc-sdhci1-3v3-pin {
 				pinctrl-single,bits = <0x0 0x00000000 0x00000100>;
 			};
-			sc_emmc_hc1_1_8v: sc-emmc-hc1-1-8v-pin {
+			sc_emmc_sdhci1_1v8: sc-emmc-sdhci1-1v8-pin {
 				pinctrl-single,bits = <0x0 0x00000100 0x00000100>;
 			};
 
-			sc_emmc_hc2_3_3v: sc-emmc-hc2-3-3v-pin {
+			sc_emmc_sdhci2_3v3: sc-emmc-sdhci2-3v3-pin {
 				pinctrl-single,bits = <0x0 0x00000000 0x00000200>;
 			};
-			sc_emmc_hc2_1_8v: sc-emmc-hc2-1-8v-pin {
+			sc_emmc_sdhci2_1v8: sc-emmc-sdhci2-1v8-pin {
 				pinctrl-single,bits = <0x0 0x00000200 0x00000200>;
 			};
 
-			sc_emmc_hc1_mem_pwrup: sc-emmc-hc1-mem-pwrup-pin {
+			sc_emmc_sdhci1_mem_pwrup: sc-emmc-sdhci1-mem-pwrup-pin {
 				pinctrl-single,bits = <0x0 0x00000000 0x10000000>;
 			};
-			sc_emmc_hc1_mem_pwrdn: sc-emmc-hc1-mem-pwrdn-pin {
+			sc_emmc_sdhci1_mem_pwrdn: sc-emmc-sdhci1-mem-pwrdn-pin {
 				pinctrl-single,bits = <0x0 0x10000000 0x10000000>;
 			};
 
-			sc_emmc_hc2_mem_pwrup: sc-emmc-hc2-mem-pwrup-pin {
+			sc_emmc_sdhci2_mem_pwrup: sc-emmc-sdhci2-mem-pwrup-pin {
 				pinctrl-single,bits = <0x0 0x00000000 0x20000000>;
 			};
-			sc_emmc_hc2_mem_pwrdn: sc-emmc-hc2-mem-pwrdn-pin {
+			sc_emmc_sdhci2_mem_pwrdn: sc-emmc-sdhci2-mem-pwrdn-pin {
 				pinctrl-single,bits = <0x0 0x20000000 0x20000000>;
 			};
 		};
@@ -1167,11 +1207,11 @@
 				#pinctrl-single,gpio-range-cells = <3>;
 			};
 
-			sc_emmc_pu_hc1_cmd_dat_0_7: sc-emmc-pu-hc1-cmd-dat-0-7-pins {
+			sc_emmc_pu_sdhci1_cmd_dat_0_7: sc-emmc-pu-sdhci1-cmd-dat-0-7-pins {
 				pinctrl-single,bits = <0x0 0x000003fe 0x000003fe>;
 			};
 
-			sc_emmc_pu_hc2_cmd_dat_0_7: sc-emmc-pu-hc2-cmd-dat-0-7-pins {
+			sc_emmc_pu_sdhci2_cmd_dat_0_7: sc-emmc-pu-sdhci2-cmd-dat-0-7-pins {
 				pinctrl-single,bits = <0x0 0x003fe000 0x003fe000>;
 			};
 		};
@@ -1190,11 +1230,11 @@
 				#pinctrl-single,gpio-range-cells = <3>;
 			};
 
-			sc_emmc_pd_hc1_dqs: sc-emmc-pd-hc1-dqs-pin {
+			sc_emmc_pd_sdhci1_dqs: sc-emmc-pd-sdhci1-dqs-pin {
 				pinctrl-single,bits = <0x0 0x00000800 0x00000800>;
 			};
 
-			sc_emmc_pd_hc2_dqs: sc-emmc-pd-hc2-dqs-pin {
+			sc_emmc_pd_sdhci2_dqs: sc-emmc-pd-sdhci2-dqs-pin {
 				pinctrl-single,bits = <0x0 0x00800000 0x00800000>;
 			};
 		};
@@ -1451,7 +1491,7 @@
 			};
 		};
 
-		sc_sdio_sdhci: sdhci@2410000 {
+		sc_sdhci0: sdhci@2410000 { /* SD/SDIO host controller */
 			compatible = "baikal,bl1000-sd4hc";
 			reg = <0x0 0x2410000 0x0 0x3000>;
 			interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
@@ -1479,7 +1519,7 @@
 			};
 		};
 
-		sc_emmc1_sdhci: sdhci@2600000 {
+		sc_sdhci1: sdhci@2600000 { /* eMMC/SD host controller */
 			compatible = "baikal,bl1000-sd4hc";
 			reg = <0x0 0x2600000 0x0 0x3000>;
 			interrupts = <GIC_SPI 495 IRQ_TYPE_LEVEL_HIGH>;
@@ -1487,7 +1527,7 @@
 			status = "disabled";
 		};
 
-		sc_emmc2_sdhci: sdhci@2610000 {
+		sc_sdhci2: sdhci@2610000 { /* eMMC/SD host controller */
 			compatible = "baikal,bl1000-sd4hc";
 			reg = <0x0 0x2610000 0x0 0x3000>;
 			interrupts = <GIC_SPI 496 IRQ_TYPE_LEVEL_HIGH>;
@@ -1609,7 +1649,6 @@
 			compatible = "arm,cmn-700";
 			reg = <0x0 0x10000000 0x0 0x8000000>;
 			interrupts = <GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>;
-			status = "disabled";
 		};
 
 		hsp_gpr_mmrst0: reset-controller@28840000 {
@@ -2096,7 +2135,8 @@
 			compatible = "cdns,torrent-phy";
 			reg = <0x0 0x2aa00000 0x0 0x100000>;
 			reg-names = "torrent_phy";
-			resets = <&hsp_gpr_mmrst1 6>, <&hsp_gpr_mmrst0 16>;
+			resets = <&hsp_gpr_mmrst1 6>,
+				 <&hsp_gpr_mmrst0 16>;
 			reset-names = "torrent_reset", "torrent_apb";
 			clocks = <&refclk100mhz>;
 			clock-names = "refclk";
@@ -2179,7 +2219,8 @@
 			compatible = "cdns,torrent-phy";
 			reg = <0x0 0x2af00000 0x0 0x100000>;
 			reg-names = "torrent_phy";
-			resets = <&hsp_gpr_mmrst3 3>, <&hsp_gpr_mmrst0 23>;
+			resets = <&hsp_gpr_mmrst3 3>,
+				 <&hsp_gpr_mmrst0 23>;
 			reset-names = "torrent_reset", "torrent_apb";
 			clocks = <&refclk100mhz>;
 			clock-names = "refclk";
@@ -2452,14 +2493,39 @@
 			status = "disabled";
 		};
 
+		ehsp_gpr_pcie0_rst0: reset-controller@30840008 {
+			compatible = "baikal,bl1000-reset";
+			reg = <0x0 0x30840008 0x0 0x4>;
+			#reset-cells = <1>;
+		};
+
+		ehsp_gpr_pcie0_rst1: reset-controller@30840010 {
+			compatible = "baikal,bl1000-reset";
+			reg = <0x0 0x30840010 0x0 0x4>;
+			#reset-cells = <1>;
+		};
+
+		ehsp_gpr_pcie1_rst0: reset-controller@30840018 {
+			compatible = "baikal,bl1000-reset";
+			reg = <0x0 0x30840018 0x0 0x4>;
+			#reset-cells = <1>;
+		};
+
+		ehsp_gpr_pcie1_rst1: reset-controller@30840020 {
+			compatible = "baikal,bl1000-reset";
+			reg = <0x0 0x30840020 0x0 0x4>;
+			#reset-cells = <1>;
+		};
+
 		ehsp_pcie0_p0: pcie@34000000 {
 			compatible = "baikal,bl1000-pcie";
 			reg = <0x00 0x34000000 0x0 0x300000>,
 			      <0x00 0x34300000 0x0 0x800>,
 			      <0x00 0x34380000 0x0 0x800>,
 			      <0x00 0x32540000 0x0 0x100>,
+			      <0x00 0x30b00000 0x0 0x4>,
 			      <0x40 0x00000000 0x0 0x10000000>;
-			reg-names = "dbi", "atu", "dma", "apb", "config";
+			reg-names = "dbi", "atu", "dma", "apb", "slv", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 294 IRQ_TYPE_LEVEL_HIGH>,
@@ -2487,6 +2553,14 @@
 #endif
 			num-viewport = <4>;
 			msi-map = <0x0 &its0 0x0 0x10000>;
+			resets = <&ehsp_gpr_pcie0_rst1 0>,
+				 <&ehsp_gpr_pcie0_rst0 0>,
+				 <&ehsp_gpr_pcie0_rst0 2>,
+				 <&ehsp_gpr_pcie0_rst0 4>,
+				 <&ehsp_gpr_pcie0_rst0 14>,
+				 <&ehsp_gpr_pcie0_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 
@@ -2495,8 +2569,9 @@
 			reg = <0x00 0x34000000 0x0 0x300000>,
 			      <0x00 0x34300000 0x0 0x800>,
 			      <0x00 0x32540000 0x0 0x100>,
+			      <0x00 0x30b00000 0x0 0x4>,
 			      <0x40 0x00000000 0x1 0x00000000>;
-			reg-names = "dbi", "atu", "apb", "addr_space";
+			reg-names = "dbi", "atu", "apb", "slv", "addr_space";
 			interrupts = <GIC_SPI 294 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH>,
@@ -2507,8 +2582,17 @@
 				     <GIC_SPI 301 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7";
+			max-functions = /bits/ 8 <2>;
 			num-ib-windows = <4>;
 			num-ob-windows = <4>;
+			resets = <&ehsp_gpr_pcie0_rst1 0>,
+				 <&ehsp_gpr_pcie0_rst0 0>,
+				 <&ehsp_gpr_pcie0_rst0 2>,
+				 <&ehsp_gpr_pcie0_rst0 4>,
+				 <&ehsp_gpr_pcie0_rst0 14>,
+				 <&ehsp_gpr_pcie0_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 
@@ -2518,12 +2602,13 @@
 			      <0x00 0x34700000 0x0 0x800>,
 			      <0x00 0x34780000 0x0 0x800>,
 			      <0x00 0x32541000 0x0 0x100>,
+			      <0x00 0x30b00000 0x0 0x4>,
 #if USE_BL1000_PCIE0_SS_MODE == 3
 			      <0x48 0x00000000 0x0 0x10000000>;
 #else /* USE_BL1000_PCIE0_SS_MODE == 2 */
 			      <0x50 0x00000000 0x0 0x10000000>;
 #endif
-			reg-names = "dbi", "atu", "dma", "apb", "config";
+			reg-names = "dbi", "atu", "dma", "apb", "slv", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH>;
@@ -2541,6 +2626,14 @@
 #endif
 			num-viewport = <4>;
 			msi-map = <0x0 &its0 0x0 0x10000>;
+			resets = <&ehsp_gpr_pcie0_rst1 0>,
+				 <&ehsp_gpr_pcie0_rst0 0>,
+				 <&ehsp_gpr_pcie0_rst0 2>,
+				 <&ehsp_gpr_pcie0_rst0 4>,
+				 <&ehsp_gpr_pcie0_rst0 14>,
+				 <&ehsp_gpr_pcie0_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 
@@ -2550,12 +2643,13 @@
 			      <0x00 0x34b00000 0x0 0x800>,
 			      <0x00 0x34b80000 0x0 0x800>,
 			      <0x00 0x32542000 0x0 0x100>,
+			      <0x00 0x30b00000 0x0 0x4>,
 #if USE_BL1000_PCIE0_SS_MODE == 3
 			      <0x50 0x00000000 0x0 0x10000000>;
 #else /* USE_BL1000_PCIE0_SS_MODE == 2 */
 			      <0x57 0x00000000 0x0 0x10000000>;
 #endif
-			reg-names = "dbi", "atu", "dma", "apb", "config";
+			reg-names = "dbi", "atu", "dma", "apb", "slv", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
@@ -2573,6 +2667,14 @@
 #endif
 			num-viewport = <4>;
 			msi-map = <0x0 &its0 0x0 0x10000>;
+			resets = <&ehsp_gpr_pcie0_rst1 0>,
+				 <&ehsp_gpr_pcie0_rst0 0>,
+				 <&ehsp_gpr_pcie0_rst0 2>,
+				 <&ehsp_gpr_pcie0_rst0 4>,
+				 <&ehsp_gpr_pcie0_rst0 14>,
+				 <&ehsp_gpr_pcie0_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 
@@ -2582,12 +2684,13 @@
 			      <0x00 0x34f00000 0x0 0x800>,
 			      <0x00 0x34f80000 0x0 0x800>,
 			      <0x00 0x32543000 0x0 0x100>,
+			      <0x00 0x30b00000 0x0 0x4>,
 #if USE_BL1000_PCIE0_SS_MODE == 3
 			      <0x50 0x00000000 0x0 0x10000000>;
 #else /* USE_BL1000_PCIE0_SS_MODE == 1 */
 			      <0x58 0x00000000 0x0 0x10000000>;
 #endif
-			reg-names = "dbi", "atu", "dma", "apb", "config";
+			reg-names = "dbi", "atu", "dma", "apb", "slv", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>;
@@ -2605,6 +2708,14 @@
 #endif
 			num-viewport = <4>;
 			msi-map = <0x0 &its0 0x0 0x10000>;
+			resets = <&ehsp_gpr_pcie0_rst1 0>,
+				 <&ehsp_gpr_pcie0_rst0 0>,
+				 <&ehsp_gpr_pcie0_rst0 2>,
+				 <&ehsp_gpr_pcie0_rst0 4>,
+				 <&ehsp_gpr_pcie0_rst0 14>,
+				 <&ehsp_gpr_pcie0_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 
@@ -2614,8 +2725,9 @@
 			      <0x00 0x35300000 0x0 0x800>,
 			      <0x00 0x35380000 0x0 0x800>,
 			      <0x00 0x32740000 0x0 0x100>,
+			      <0x00 0x30d00000 0x0 0x4>,
 			      <0x60 0x00000000 0x0 0x10000000>;
-			reg-names = "dbi", "atu", "dma", "apb", "config";
+			reg-names = "dbi", "atu", "dma", "apb", "slv", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>,
@@ -2643,6 +2755,14 @@
 #endif
 			num-viewport = <4>;
 			msi-map = <0x0 &its1 0x0 0x10000>;
+			resets = <&ehsp_gpr_pcie1_rst1 0>,
+				 <&ehsp_gpr_pcie1_rst0 0>,
+				 <&ehsp_gpr_pcie1_rst0 2>,
+				 <&ehsp_gpr_pcie1_rst0 4>,
+				 <&ehsp_gpr_pcie1_rst0 14>,
+				 <&ehsp_gpr_pcie1_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 
@@ -2651,8 +2771,9 @@
 			reg = <0x00 0x35000000 0x0 0x300000>,
 			      <0x00 0x35300000 0x0 0x800>,
 			      <0x00 0x32740000 0x0 0x100>,
+			      <0x00 0x30d00000 0x0 0x4>,
 			      <0x60 0x00000000 0x1 0x00000000>;
-			reg-names = "dbi", "atu", "apb", "addr_space";
+			reg-names = "dbi", "atu", "apb", "slv", "addr_space";
 			interrupts = <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 311 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 312 IRQ_TYPE_LEVEL_HIGH>,
@@ -2663,8 +2784,17 @@
 				     <GIC_SPI 317 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "dma0", "dma1", "dma2", "dma3",
 					  "dma4", "dma5", "dma6", "dma7";
+			max-functions = /bits/ 8 <2>;
 			num-ib-windows = <4>;
 			num-ob-windows = <4>;
+			resets = <&ehsp_gpr_pcie1_rst1 0>,
+				 <&ehsp_gpr_pcie1_rst0 0>,
+				 <&ehsp_gpr_pcie1_rst0 2>,
+				 <&ehsp_gpr_pcie1_rst0 4>,
+				 <&ehsp_gpr_pcie1_rst0 14>,
+				 <&ehsp_gpr_pcie1_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 
@@ -2674,12 +2804,13 @@
 			      <0x00 0x35700000 0x0 0x800>,
 			      <0x00 0x35780000 0x0 0x800>,
 			      <0x00 0x32741000 0x0 0x100>,
+			      <0x00 0x30d00000 0x0 0x4>,
 #if USE_BL1000_PCIE1_SS_MODE == 3
 			      <0x68 0x00000000 0x0 0x10000000>;
 #else /* USE_BL1000_PCIE1_SS_MODE == 2 */
 			      <0x70 0x00000000 0x0 0x10000000>;
 #endif
-			reg-names = "dbi", "atu", "dma", "apb", "config";
+			reg-names = "dbi", "atu", "dma", "apb", "slv", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>;
@@ -2697,6 +2828,14 @@
 #endif
 			num-viewport = <4>;
 			msi-map = <0x0 &its1 0x0 0x10000>;
+			resets = <&ehsp_gpr_pcie1_rst1 0>,
+				 <&ehsp_gpr_pcie1_rst0 0>,
+				 <&ehsp_gpr_pcie1_rst0 2>,
+				 <&ehsp_gpr_pcie1_rst0 4>,
+				 <&ehsp_gpr_pcie1_rst0 14>,
+				 <&ehsp_gpr_pcie1_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 
@@ -2706,12 +2845,13 @@
 			      <0x00 0x35b00000 0x0 0x800>,
 			      <0x00 0x35b80000 0x0 0x800>,
 			      <0x00 0x32742000 0x0 0x100>,
+			      <0x00 0x30d00000 0x0 0x4>,
 #if USE_BL1000_PCIE1_SS_MODE == 3
 			      <0x70 0x00000000 0x0 0x10000000>;
 #else /* USE_BL1000_PCIE1_SS_MODE == 2 */
 			      <0x78 0x00000000 0x0 0x10000000>;
 #endif
-			reg-names = "dbi", "atu", "dma", "apb", "config";
+			reg-names = "dbi", "atu", "dma", "apb", "slv", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_HIGH>;
@@ -2729,6 +2869,14 @@
 #endif
 			num-viewport = <4>;
 			msi-map = <0x0 &its1 0x0 0x10000>;
+			resets = <&ehsp_gpr_pcie1_rst1 0>,
+				 <&ehsp_gpr_pcie1_rst0 0>,
+				 <&ehsp_gpr_pcie1_rst0 2>,
+				 <&ehsp_gpr_pcie1_rst0 4>,
+				 <&ehsp_gpr_pcie1_rst0 14>,
+				 <&ehsp_gpr_pcie1_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 
@@ -2738,12 +2886,13 @@
 			      <0x00 0x35f00000 0x0 0x800>,
 			      <0x00 0x35f80000 0x0 0x800>,
 			      <0x00 0x32743000 0x0 0x100>,
+			      <0x00 0x30d00000 0x0 0x4>,
 #if USE_BL1000_PCIE1_SS_MODE == 3
 			      <0x78 0x00000000 0x0 0x10000000>;
 #else /* USE_BL1000_PCIE1_SS_MODE == 1 */
 			      <0x70 0x00000000 0x0 0x10000000>;
 #endif
-			reg-names = "dbi", "atu", "dma", "apb", "config";
+			reg-names = "dbi", "atu", "dma", "apb", "slv", "config";
 			device_type = "pci";
 			bus-range = <0x0 0xff>;
 			interrupts = <GIC_SPI 321 IRQ_TYPE_LEVEL_HIGH>;
@@ -2761,6 +2910,14 @@
 #endif
 			num-viewport = <4>;
 			msi-map = <0x0 &its1 0x0 0x10000>;
+			resets = <&ehsp_gpr_pcie1_rst1 0>,
+				 <&ehsp_gpr_pcie1_rst0 0>,
+				 <&ehsp_gpr_pcie1_rst0 2>,
+				 <&ehsp_gpr_pcie1_rst0 4>,
+				 <&ehsp_gpr_pcie1_rst0 14>,
+				 <&ehsp_gpr_pcie1_rst0 15>;
+			reset-names = "pwrup", "ctrl-phy", "func-gpv",
+				      "cfg-gpv", "hs-cfg", "func";
 			status = "disabled";
 		};
 

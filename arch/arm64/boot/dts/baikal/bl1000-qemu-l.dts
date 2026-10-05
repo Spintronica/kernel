@@ -25,19 +25,11 @@
 	};
 };
 
+/delete-node/ &ehsp_pcie0_p0_ep;
+/delete-node/ &ehsp_pcie1_p0_ep;
+
 &hsp_mali {
 	status = "okay";
-};
-
-&sc_emmc1_sdhci {
-	status = "okay";
-	pinctrl = <&sc_emmc_mux_emmc1>;
-	bus-width = <8>;
-	max-frequency = <25000000>;
-	no-sd;
-	no-sdio;
-	non-removable;
-	sdhci-caps-mask = <0x00000002 0x00680000>;
 };
 
 &sc_emmc_pinctrl {
@@ -54,6 +46,21 @@
 
 &sc_lsp_pinctrl2 {
 	status = "okay";
+};
+
+&sc_sdhci1 {
+	status = "okay";
+	pinctrl = <&sc_emmc_mux_sdhci1>,
+		  <&sc_emmc_sdhci1_1v8>,
+		  <&sc_emmc_sdhci1_mem_pwrup>,
+		  <&sc_emmc_pu_sdhci1_cmd_dat_0_7>,
+		  <&sc_emmc_pd_sdhci1_dqs>;
+	bus-width = <8>;
+	max-frequency = <25000000>;
+	no-sd;
+	no-sdio;
+	non-removable;
+	sdhci-caps-mask = <0x00000002 0x00680000>;
 };
 
 &sc_uart2 {
