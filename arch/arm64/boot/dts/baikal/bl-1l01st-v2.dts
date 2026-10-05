@@ -312,7 +312,7 @@ et124\n\
 &hsp_usb1_l0 {
 	status = "okay";
 	dr_mode = "host";
-	maximum-speed = "super-speed-plus";
+	maximum-speed = "super-speed";
 	phys = <&hsp_usb1_phy10g_l0>;
 	phy-names = "cdns3,usb3-phy";
 };
