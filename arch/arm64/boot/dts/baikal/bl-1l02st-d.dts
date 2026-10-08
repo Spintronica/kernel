@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Device tree source for Spintronica 1L02ST-MB-Rev3 board.
+ * Device tree source for Spintronica 1L02ST-MB-Rev2 board.
  */
 
 /dts-v1/;
 
-#define USE_BL1000_PCIE1_SS_MODE	1
+#define USE_BL1000_PCIE1_SS_MODE	3
 
 #include "bl1000.dtsi"
 #include <dt-bindings/input/gpio-keys.h>
@@ -67,8 +67,8 @@
 &ehsp_pcie0_p0 {
 	status = "okay";
 	num-lanes = <4>;
-	pinctrl = <&hsp_lsp_pin29_gpio32>;
-	reset-gpios = <&portf 29 GPIO_ACTIVE_LOW>;
+	pinctrl = <&hsp_lsp_pin4_gpio32>;
+	reset-gpios = <&portf 4 GPIO_ACTIVE_LOW>;
 };
 
 &ehsp_pcie1_p0 {
@@ -110,10 +110,6 @@
 	baikal,awqos = <10>;
 };
 
-&hsp_smmu {
-	status = "okay";
-};
-
 &hsp_vdec {
 	status = "okay";
 	baikal,arqos = <14>;
@@ -141,7 +137,7 @@
 		compatible = "ethernet-phy-ieee802.3-c22";
 		reg = <0x3>;
 		interrupt-parent = <&portf>;
-		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
 	};
 };
 
@@ -180,13 +176,13 @@
 &sc_gmac {
 	status = "okay";
 	pinctrl = <&sc_gmac_sdio_bit0_mode1>,
-		  <&hsp_lsp_pin26_gpio32>,
-		  <&hsp_lsp_pin27_gpio32>;
+		  <&hsp_lsp_pin0_gpio32>,
+		  <&hsp_lsp_pin1_gpio32>;
 
 	phy-handle = <&ethphy>;
 	phy-mode = "rgmii-rxid";
 
-	snps,reset-gpios = <&portf 26 GPIO_ACTIVE_LOW>;
+	snps,reset-gpios = <&portf 0 GPIO_ACTIVE_LOW>;
 	snps,reset-delays-us = <10 10200 60000>;
 };
 
@@ -259,44 +255,25 @@
 0x111d76d5 0x00000100 0\n\
 [model]\n\
 1l02st\n\
-[verb]\n\
-0x0d 0x707 0x40\n\
-0x1d 0x70d 0x01\n\
-0x1e 0x70d 0x01\n\
-0x1f 0x71f 0x90\n\
-0x1f 0x71e 0x46\n\
-0x1f 0x71d 0x01\n\
 [pincfg]\n\
 0x0a 0x02a1101f\n\
 0x0b 0x02211010\n\
 0x0c 0x01a19020\n\
 0x0e 0x01014021\n\
 0x0f 0x01813040\n\
-0x11 0x40000000\n\
-0x1f 0x90460160\n\
-0x20 0x90460170\n";
-	patch-data-speaker = "\
-[codec]\n\
+[verb]\n\
+0x0d 0x707 0x40\n";
+	patch-data-speaker = "[codec]\n\
 0x111d76d5 0x00000100 0\n\
 [model]\n\
 1l02st\n\
-[verb]\n\
-0x0d 0x707 0x00\n\
-0x1d 0x70d 0x01\n\
-0x1e 0x70d 0x01\n\
-0x1f 0x71f 0x90\n\
-0x1f 0x71e 0x46\n\
-0x1f 0x71d 0x01\n\
 [pincfg]\n\
 0x0a 0x02a1101f\n\
 0x0b 0x02211010\n\
 0x0c 0x01a19020\n\
 0x0d 0x40000000\n\
 0x0e 0x01014021\n\
-0x0f 0x01813040\n\
-0x11 0x40000000\n\
-0x1f 0x90460160\n\
-0x20 0x90460170\n";
+0x0f 0x01813040\n";
 };
 
 &ehsp_dp_phy {
@@ -307,6 +284,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	baikal,audio-enable;
 };
 
 &hsp_usb1_l0 {
@@ -398,21 +376,5 @@
 	status = "okay";
 	pinctrl = <&sc_lsp_pin10_uart1_rxd>,
 		  <&sc_lsp_pin11_uart1_txd>;
-};
-
-&sc_timer0 {
-	status = "okay";
-};
-
-&sc_timer1 {
-	status = "okay";
-};
-
-&sc_timer2 {
-	status = "okay";
-};
-
-&sc_timer3 {
-	status = "okay";
 };
 
