@@ -1290,13 +1290,13 @@
 		};
 
 		sc_uart0: serial@2250000 {
-			compatible = "baikal,bl1000-uart";
+			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x2250000 0x0 0x100>;
 			interrupts = <GIC_SPI 446 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&sc_cmu0_clkch 37>, <&sc_cmu0_clkch 31>;
-			clock-names = "baudclk", "apb_pclk";
+			clocks = <&refclk100mhz>;
+			clock-names = "baudclk";
 			/* DMA is mutually exclusive with SC.UART1 */
 			dmas = <&sc_dmac 4 0 1>, <&sc_dmac 5 0 1>;
 			dma-names = "tx", "rx";
@@ -1304,13 +1304,13 @@
 		};
 
 		sc_uart1: serial@2260000 {
-			compatible = "baikal,bl1000-uart";
+			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x2260000 0x0 0x100>;
 			interrupts = <GIC_SPI 447 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&sc_cmu0_clkch 38>, <&sc_cmu0_clkch 31>;
-			clock-names = "baudclk", "apb_pclk";
+			clocks = <&refclk100mhz>;
+			clock-names = "baudclk";
 			/* DMA is mutually exclusive with SC.UART0 */
 			/* dmas = <&sc_dmac 4 0 1>, <&sc_dmac 5 0 1>; */
 			/* dma-names = "tx", "rx"; */
@@ -1318,26 +1318,26 @@
 		};
 
 		sc_uart2: serial@2270000 {
-			compatible = "baikal,bl1000-uart";
+			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x2270000 0x0 0x100>;
 			interrupts = <GIC_SPI 448 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&sc_cmu0_clkch 39>, <&sc_cmu0_clkch 31>;
-			clock-names = "baudclk", "apb_pclk";
+			clocks = <&refclk100mhz>;
+			clock-names = "baudclk";
 			dmas = <&sc_dmac 6 0 1>, <&sc_dmac 7 0 1>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
 		sc_uart3: serial@2280000 {
-			compatible = "baikal,bl1000-uart";
+			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x2280000 0x0 0x100>;
 			interrupts = <GIC_SPI 449 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&sc_cmu0_clkch 40>, <&sc_cmu0_clkch 31>;
-			clock-names = "baudclk", "apb_pclk";
+			clocks = <&refclk100mhz>;
+			clock-names = "baudclk";
 			dmas = <&sc_dmac 8 0 1>, <&sc_dmac 9 0 1>;
 			dma-names = "tx", "rx";
 			status = "disabled";
@@ -1407,7 +1407,7 @@
 				     <GIC_SPI 483 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 484 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 485 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&sc_cmu0_clkch 31>;
+			clocks = <&refclk400mhz>;
 			clock-names = "hclk";
 			dma-channels = <8>;
 			dma-requests = <16>;
@@ -2282,12 +2282,12 @@
 		};
 
 		hsp_uart0: serial@2b050000 {
-			compatible = "baikal,bl1000-uart";
+			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x2b050000 0x0 0x100>;
 			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>;
+			clocks = <&refclk100mhz>;
 			clock-names = "baudclk";
 			/* DMA is mutually exclusive with HSP.UART1 */
 			dmas = <&hsp_dmac 4 0 1>, <&hsp_dmac 5 0 1>;
@@ -2296,12 +2296,12 @@
 		};
 
 		hsp_uart1: serial@2b060000 {
-			compatible = "baikal,bl1000-uart";
+			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x2b060000 0x0 0x100>;
 			interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>;
+			clocks = <&refclk100mhz>;
 			clock-names = "baudclk";
 			/* DMA is mutually exclusive with HSP.UART0 */
 			/* dmas = <&hsp_dmac 4 0 1>, <&hsp_dmac 5 0 1>; */
@@ -2310,12 +2310,12 @@
 		};
 
 		hsp_uart2: serial@2b070000 {
-			compatible = "baikal,bl1000-uart";
+			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x2b070000 0x0 0x100>;
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>;
+			clocks = <&refclk100mhz>;
 			clock-names = "baudclk";
 			dmas = <&hsp_dmac 6 0 1>, <&hsp_dmac 7 0 1>;
 			dma-names = "tx", "rx";
@@ -2323,12 +2323,12 @@
 		};
 
 		hsp_uart3: serial@2b080000 {
-			compatible = "baikal,bl1000-uart";
+			compatible = "snps,dw-apb-uart";
 			reg = <0x0 0x2b080000 0x0 0x100>;
 			interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
-			clocks = <&hsp_cmu0_clkch 22>;
+			clocks = <&refclk100mhz>;
 			clock-names = "baudclk";
 			dmas = <&hsp_dmac 8 0 1>, <&hsp_dmac 9 0 1>;
 			dma-names = "tx", "rx";
