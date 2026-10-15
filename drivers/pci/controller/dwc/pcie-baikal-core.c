@@ -285,8 +285,9 @@ static int bl1000_get_resources(struct platform_device *pdev,
 
 	bl->slv_base = devm_platform_ioremap_resource_byname(pdev, "slv");
 	if (IS_ERR(bl->slv_base))
-		return PTR_ERR(bl->slv_base);
-	bl->slv_remap = readl(bl->slv_base) & BL1000_PCIE_SLV_NIC_REMAP_MASK;
+		bl->slv_base = NULL;
+	else
+		bl->slv_remap = readl(bl->slv_base) & BL1000_PCIE_SLV_NIC_REMAP_MASK;
 
 	if (data->mode == DW_PCIE_EP_TYPE) {
 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "addr_space");
@@ -418,7 +419,8 @@ static int bl1000_exit_from_l2(struct baikal_pcie *bp)
 		return ret;
 	}
 	/* Restore Slave NIC remapping */
-	writel(bl->slv_remap, bl->slv_base);
+	if (bl->slv_base)
+		writel(bl->slv_remap, bl->slv_base);
 
 	return 0;
 }
