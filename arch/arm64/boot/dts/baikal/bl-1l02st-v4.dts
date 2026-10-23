@@ -306,6 +306,7 @@
 	status = "okay";
 	baikal,dp-lanes = <4>;
 	baikal,arqos = <15>;
+	baikal,audio-enable;
 };
 
 &hsp_usb1_l0 {
