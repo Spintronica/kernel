@@ -301,15 +301,28 @@ static int bl1000_get_resources(struct platform_device *pdev,
 	}
 
 	bl->pwrup = devm_reset_control_get_shared_deasserted(pci->dev, "pwrup");
-	if (IS_ERR(bl->pwrup))
-		return PTR_ERR(bl->pwrup);
+	if (IS_ERR(bl->pwrup)) {
+		dev_warn(pci->dev, "No pwrup reset (%ld)\n", PTR_ERR(bl->nic_resets[i].rstc));
+		bl->pwrup = NULL;
+	}
 
 	for (i = 0; i < BL1000_PCIE_NUM_NIC_RESETS; i++)
 		bl->nic_resets[i].id = bl1000_pcie_nic_resets[i];
 	ret = devm_reset_control_bulk_get_shared_deasserted(pci->dev,
 		BL1000_PCIE_NUM_NIC_RESETS, bl->nic_resets);
-	if (ret)
-		return ret;
+	if (ret) {
+		for (i = 0; i < BL1000_PCIE_NUM_NIC_RESETS; i++) {
+			if (IS_ERR(bl->nic_resets[i].rstc)) {
+				dev_warn(pci->dev, "Can't get %s reset (%ld)\n",
+					 bl->nic_resets[i].id,
+					 PTR_ERR(bl->nic_resets[i].rstc));
+				bl->nic_resets[i].rstc = NULL;
+				break;
+			}
+			reset_control_release(bl->nic_resets[i].rstc);
+			bl->nic_resets[i].rstc = NULL;
+		}
+	}
 
 	return 0;
 }
