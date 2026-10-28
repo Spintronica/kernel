@@ -2626,7 +2626,7 @@
 				 <0x82000000 0x11 0x00000000 0x51 0x00000000 0x07 0x00000000>;
 #endif
 			num-viewport = <4>;
-			msi-map = <0x0 &its0 0x0 0x10000>;
+			msi-map = <0x0 &its0 0x10000 0x10000>;
 			resets = <&ehsp_gpr_pcie0_rst1 0>,
 				 <&ehsp_gpr_pcie0_rst0 0>,
 				 <&ehsp_gpr_pcie0_rst0 2>,
@@ -2667,7 +2667,7 @@
 				 <0x82000000 0x19 0x00000000 0x59 0x00000000 0x07 0x00000000>;
 #endif
 			num-viewport = <4>;
-			msi-map = <0x0 &its0 0x0 0x10000>;
+			msi-map = <0x0 &its0 0x20000 0x10000>;
 			resets = <&ehsp_gpr_pcie0_rst1 0>,
 				 <&ehsp_gpr_pcie0_rst0 0>,
 				 <&ehsp_gpr_pcie0_rst0 2>,
@@ -2708,7 +2708,7 @@
 				 <0x82000000 0x11 0x00000000 0x51 0x00000000 0x0f 0x00000000>;
 #endif
 			num-viewport = <4>;
-			msi-map = <0x0 &its0 0x0 0x10000>;
+			msi-map = <0x0 &its0 0x30000 0x10000>;
 			resets = <&ehsp_gpr_pcie0_rst1 0>,
 				 <&ehsp_gpr_pcie0_rst0 0>,
 				 <&ehsp_gpr_pcie0_rst0 2>,
@@ -2828,7 +2828,7 @@
 				 <0x82000000 0x11 0x00000000 0x71 0x00000000 0x07 0x00000000>;
 #endif
 			num-viewport = <4>;
-			msi-map = <0x0 &its1 0x0 0x10000>;
+			msi-map = <0x0 &its1 0x10000 0x10000>;
 			resets = <&ehsp_gpr_pcie1_rst1 0>,
 				 <&ehsp_gpr_pcie1_rst0 0>,
 				 <&ehsp_gpr_pcie1_rst0 2>,
@@ -2869,7 +2869,7 @@
 				 <0x82000000 0x19 0x00000000 0x79 0x00000000 0x07 0x00000000>;
 #endif
 			num-viewport = <4>;
-			msi-map = <0x0 &its1 0x0 0x10000>;
+			msi-map = <0x0 &its1 0x20000 0x10000>;
 			resets = <&ehsp_gpr_pcie1_rst1 0>,
 				 <&ehsp_gpr_pcie1_rst0 0>,
 				 <&ehsp_gpr_pcie1_rst0 2>,
@@ -2910,7 +2910,7 @@
 				 <0x82000000 0x11 0x00000000 0x71 0x00000000 0x0f 0x00000000>;
 #endif
 			num-viewport = <4>;
-			msi-map = <0x0 &its1 0x0 0x10000>;
+			msi-map = <0x0 &its1 0x30000 0x10000>;
 			resets = <&ehsp_gpr_pcie1_rst1 0>,
 				 <&ehsp_gpr_pcie1_rst0 0>,
 				 <&ehsp_gpr_pcie1_rst0 2>,
