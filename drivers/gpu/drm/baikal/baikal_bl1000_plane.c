@@ -31,10 +31,10 @@ static const struct baikal_vdu_drm_format baikal_vdu_pu_ctrl_table[] = {
 	{pipe_pu_ctrl_reg(1, 1, 1, 2), DRM_FORMAT_ABGR1555},
 	{pipe_pu_ctrl_reg(1, 0, 0, 2), DRM_FORMAT_XRGB1555},
 	{pipe_pu_ctrl_reg(1, 1, 0, 2), DRM_FORMAT_ARGB1555},
-	{pipe_pu_ctrl_reg(2, 0, 1, 0), DRM_FORMAT_XBGR8888},
-	{pipe_pu_ctrl_reg(2, 1, 1, 0), DRM_FORMAT_ABGR8888},
+	{pipe_pu_ctrl_reg(2, 1, 0, 0), DRM_FORMAT_XBGR8888},
+	{pipe_pu_ctrl_reg(2, 1, 0, 0), DRM_FORMAT_ABGR8888},
 	{pipe_pu_ctrl_reg(2, 0, 0, 0), DRM_FORMAT_XRGB8888},
-	{pipe_pu_ctrl_reg(2, 1, 0, 0), DRM_FORMAT_ARGB8888},
+	{pipe_pu_ctrl_reg(2, 0, 0, 0), DRM_FORMAT_ARGB8888},
 };
 
 static void baikal_vdu_l1000_set_pxl_fmt(struct baikal_vdu_private *priv,
