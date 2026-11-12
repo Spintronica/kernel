@@ -112,8 +112,8 @@
 
 #define pipe_pu_ctrl_reg(pu_bpp, pu_alpha, pu_bgr, pu_mode) \
 		(((pu_bpp) << 24) | \
-		((pu_alpha) << 16) | \
-		((pu_bgr) << 8) | \
+		((pu_alpha) << 8) | \
+		((pu_bgr) << 16) | \
 		(pu_mode))
 
 #define pipe_window_reg(start, end) \
